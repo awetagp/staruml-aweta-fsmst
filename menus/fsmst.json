@@ -1,0 +1,14 @@
+{
+    "menu": [
+        {
+            "id": "tools",
+            "submenu": [
+                {
+                    "label": "Generate FSM",
+                    "id": "tool.fsmgen",
+                    "command": "fsm_st:generate"
+                }
+            ]
+        }
+    ]
+}

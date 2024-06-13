@@ -1,0 +1,24 @@
+{
+    "id": "fsmst",
+    "name": "FSM ST",
+    "schema": {
+        "fsmst.gen": {
+            "text": "Finite Statemachine ST generator",
+            "type": "section"
+        },
+        "fsmst.gen.outputFormat": {
+            "text": "Output",
+            "description": "EJS template string for file output",
+            "type": "string",
+            "width": 450,
+            "default": "out/<%=element.name%>.st"
+        },
+        "fsmst.gen.template": {
+            "text": "Template",
+            "description": "EJS template file for FSM generation",
+            "type": "string",
+            "width": 450,
+            "default": "statemachine_fbst.ejs"
+        }
+    }
+}

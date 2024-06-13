@@ -1,0 +1,20 @@
+{
+    "name": "aweta.fsmst",
+    "title": "FSM ST",
+    "description": "Finite StateMachine generator for Structured Text.",
+    "homepage": "https://github.com/staruml/staruml-helloworld",
+    "version": "0.0.1",
+    "keywords": [
+        "fsm",
+        "st"
+    ],
+    "author": {
+        "name": "Marcel van de Weert",
+        "email": "mvdweert@aweta.nl",
+        "url": "https://aweta.com"
+    },
+    "license": "MIT",
+    "engines": {
+        "staruml": ">=3.0.0"
+    }
+}
