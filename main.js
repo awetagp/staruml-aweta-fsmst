@@ -1,8 +1,10 @@
 // docs : https://docs.staruml.io/developing-extensions
 
 const path = require('path');
+const fs = require('fs');
 // const filenamify = require("filenamify");
 // const ejs = require("ejs");
+
 
 function handleFsmGenerator(template_file, elements, output) {
     // const data = {
@@ -41,10 +43,10 @@ function handleFsmGenerator(template_file, elements, output) {
                     // ipcRenderer.send("console-log", `[StarUML] ejs done`);
                     }
                 });
-                //   if (output) {
-                    //   const outputRendered = ejs.render(output, data, { async: false });
-                    fs.ensureFileSync(outputRendered);
-                    fs.writeFileSync(outputRendered, rendered, { encoding: "utf-8" });
+                console.log(`gen done`);
+                fs.writeFileSync(outputRendered, rendered, { encoding: "utf-8" });
+                console.log(`writen to ${outputRendered}`);
+
                     // ipcRenderer.send("console-log", `[StarUML] ${outputRendered}`);
                     // } else {
                     //   ipcRenderer.send("console-log", rendered);
@@ -56,6 +58,7 @@ function handleFsmGenerator(template_file, elements, output) {
                 // );
         } catch (err) {
             // ipcRenderer.send("console-log", `[Error] ${err.toString()}`);
+            console.error(err);
         }
 
 
@@ -70,7 +73,7 @@ function handleFsmGenerate() {
     ) {
         var state_machine = app.selections.getSelectedModels()[0],
             basedir = path.dirname(app.project.filename),
-            output = path.join(basedir, app.preferences.get('fsmst.gen.outputFormat')),
+            output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
             template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template"));
         // window.alert(`Selected statemachine ${state_machine.name}!`);
 
