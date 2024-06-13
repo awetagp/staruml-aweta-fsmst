@@ -1,17 +1,14 @@
 // docs : https://docs.staruml.io/developing-extensions
+// api: https://files.staruml.io/api-docs/6.0.0/api/index.html
 
 const path = require('path');
 const fs = require('fs');
+const { ipcRenderer } = require("electron");
 // const filenamify = require("filenamify");
 // const ejs = require("ejs");
 
 
 function handleFsmGenerator(template_file, elements, output) {
-    // const data = {
-    //     app: app,
-    //     element: statemachine,
-    //     // filenamify: filenamify
-    // };
     if (output) {
 
         console.log(template_file);
@@ -22,9 +19,17 @@ function handleFsmGenerator(template_file, elements, output) {
 
                 const element = elements[i];
 
+                //1. data extraction from element
+                //2. data toevoegen aan data{}
+
                 const data = {
                     app: app,
                     element: element
+                    // replacements: {},
+                    // var: {
+
+                    // }
+
                     // filenamify: filenamify,
                 };
 
@@ -68,29 +73,63 @@ function handleFsmGenerator(template_file, elements, output) {
 function handleFsmGenerate() {
 
 
-    if (   app.selections.getSelectedModels().length == 1
-        && app.selections.getSelectedModels()[0] instanceof type['UMLStateMachine']
-    ) {
-        var state_machine = app.selections.getSelectedModels()[0],
-            basedir = path.dirname(app.project.filename),
-            output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
-            template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template"));
-        // window.alert(`Selected statemachine ${state_machine.name}!`);
+
+    app.elementPickerDialog.showDialog('Select a base model to generate codes', null, type.UMLStateMachine).then(function ({
+        buttonId,
+        returnValue
+    }) {
+        if (buttonId === 'ok') {
+            if (returnValue instanceof type['UMLStateMachine']) {
+                var state_machine = returnValue;
+                basedir = path.dirname(app.project.filename),
+                    output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
+                    template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template"));
+                //.\example_statemachine.mdj -t ./statemachine_fbst.ejs -s "@UMLStateMachine[name=StateMachine4]" -o "out/<%=element.name%>.st"
+                console.log(basedir);
+
+                handleFsmGenerator(template_file, [state_machine], output);
+            } else {
+                    window.alert('Please select a StateMachine!');
+            }
+        };
+    })
+
+}
+function handleFsmGenerateCli(message) {
+    if (message) {
+        var _args = {},
+            elements;
+        message.forEach(arg => {
+            const parts = arg.split("=", 2);
+            ipcRenderer.send("console-log", arg);
+            ipcRenderer.send("console-log", parts);
+            _args[parts[0]] = parts[1];
+        })
+
+        ipcRenderer.send("console-log", message);
+        ipcRenderer.send("console-log", _args);
+
+        if ('s' in _args) {
+            elements = app.repository.select(_args['s']);
+            // ipcRenderer.send("console-log", elements);
+        }
+
+        console.log('Doei');
 
 
-        //.\example_statemachine.mdj -t ./statemachine_fbst.ejs -s "@UMLStateMachine[name=StateMachine4]" -o "out/<%=element.name%>.st"
-        console.log(basedir);
 
-        handleFsmGenerator(template_file, [state_machine], output)
+
+
+
+
+        ipcRenderer.send("console-log", "Done it!");
     }
-    else {
-        window.alert('Please select a StateMachine in the explorer!');
-    }
-  }
+}
 
 function init () {
-    app.commands.register('fsm_st:generate', handleFsmGenerate)
+    app.commands.register('fsm_st:generate', handleFsmGenerate, 'FSM Generate')
+    app.commands.register('fsm_st:cligenerate', handleFsmGenerateCli)
 }
 
 
-exports.init = init;
+exports.init = init
