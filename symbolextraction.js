@@ -1,192 +1,214 @@
 
-VARS = [];
-FUNCTION_BLOCKS = [];
-REPLACEMENTS = {};
 
+function showdataset(dataset) {
+    dataset.vars.forEach(value => { console.log("VAR:"+value.varname) });
+    dataset.fbs.forEach(value => { console.log("FB:"+value) });
+    for(const [from, to] of Object.entries(dataset.repl)) { console.log("REPL:"+from+" to "+to) }
+}
 
-function createdataset() {
-    var dataset = { var_in:[], 
+function createdataset(dataset) {
+    var extendeddataset = { var_in:[], 
                     var_out:[], 
                     var_private:[], 
                     var_inout:[], 
-                    body_pre:FUNCTION_BLOCKS,
-                    replacements:REPLACEMENTS };
+                    body_pre:dataset.fbs,
+                    replacements:{} };
 
-    VARS.forEach( item => {
-        if (item.type == "INPUT") {
-            dataset.var_in.push(item.name+" : "+item.datatype+";");
+    dataset.vars.forEach( item => {
+        if (item.location == "INPUT") {
+            extendeddataset.var_in.push(item.varname+" : "+item.datatype);
         }
-        if (item.type == "OUTPUT") {
-            dataset.var_out.push(item.name+" : "+item.datatype+";");
+        if (item.location == "OUTPUT") {
+            extendeddataset.var_out.push(item.varname+" : "+item.datatype);
         }
-        if (item.type == "VAR") {
-            dataset.var_private.push(item.name+" : "+item.datatype+";");
+        if (item.location == "VAR") {
+            extendeddataset.var_private.push(item.varname+" : "+item.datatype);
         }
-        if (item.type == "IN_OUT") {
-            dataset.var_inout.push(item.name+" : "+item.datatype+";");
+        if (item.location == "IN_OUT") {
+            extendeddataset.var_inout.push(item.varname+" : "+item.datatype);
         }
     })
+
+    dataset.fbs.forEach( item => {
+        if (item != "") {
+            extendeddataset.body_pre.push(item);
+        }
+    })
+
+    for(let [from, to] of Object.entries(dataset.repl)) {
+        if (from != to && from != "") {
+            extendeddataset.replacements[from] = to; 
+        }
+    }
+
+    return extendeddataset;
+}
+
+function mergedatasets(sourceset, mergeset) {
+    var dataset = sourceset;
+
+    dataset.fbs = sourceset.fbs.concat(mergeset.fbs);
+    dataset.fbs = dataset.fbs.filter((item,pos) => dataset.fbs.indexOf(item) === pos) // make unique
+
+    dataset.repl = Object.assign({}, sourceset.repl ,mergeset.repl);
+
+    mergeset.vars.forEach(item => {
+        var exists=false;
+        dataset.vars.forEach( source_item => {
+            if (source_item.varname == item.varname) {
+                exists=true;
+                if (source_item.location != item.location) {
+                    source_item.location = "IN_OUT";
+                }
+            }
+        })
+        if (exists==false) {
+            dataset.vars.push(item);
+        }
+    })
+
     return dataset;
 }
 
-function addvar( name, type, datatype) {
-    exists=false;
-    VARS.forEach( item => { 
-        if (item.name == name) {
-            exists=true;
-            if (item.type != type && item.type != "IN_OUT") {
-                item.type = "IN_OUT";
-            };
-            if(item.datatype != datatype) {
-                console.error("Conflicting datatype for VAR "+name+": "+datatype+" and "+item.datatype);
-            }
-        }
-    })
-
-    if (exists == false) {
-        VARS.push( {name:name, type:type, datatype:datatype});
-    }
-    return exists;
-}
-
-function addfb( fb ) {
-    exists=FUNCTION_BLOCKS.indexOf(fb)>=0;
-    if (exists == false) {
-        FUNCTION_BLOCKS.push( fb );
-    }
-    return exists;
-}
-
-function addreplacement( from, to ) {
-    exists=false;
-    if (from in REPLACEMENTS) {
-        exists=true;
-        if (REPLACEMENTS[from] != to) {
-            console.error("Conflicting datatype for replacement ["+from+"]: ["+to+"] and ["+REPLACEMENTS[from]+"]");
-        }
-    } else {
-        REPLACEMENTS[from] = to;
-    }
-    return exists;
-}
-
 function parseEvent( expr ) {
+    var dataset = { vars:[], fbs:[], repl:{} };
     eventname = expr.trim();
     // check if event allready parsed
     // there is a difference with timer events and other events
     if (eventname.startsWith("ev") && eventname.endsWith("Timeout")) {
         timername = eventname.slice(2,-7);
-        if (addvar( name="ton"+timername, type='VAR', datatype='TON') == false) {
-            addfb("ton"+timername+"();");
-            addreplacement(from=eventname, to="ton"+timername+".Q");
-        };
+        dataset.vars.push( {varname:"ton"+timername, location:'VAR', datatype:'TON'});
+        dataset.fbs.push("ton"+timername+"()");
+        dataset.repl[eventname] ="ton"+timername+".Q";
     } else {
-        if (addvar( name=eventname, type='INPUT', datatype='BOOL') == false) {
-            addvar( name="rt"+eventname, type='VAR', datatype='R_TRIG');
-            addfb("rt"+eventname+"(CLK:="+eventname+");");
-            addreplacement(from=eventname, to=eventname+".Q");
-        }
+        dataset.vars.push( {varname:eventname, location:'INPUT', datatype:'BOOL'});
+        dataset.vars.push( { varname:"rt"+eventname, location:'VAR', datatype:'R_TRIG'});
+        dataset.fbs.push("rt"+eventname+"(CLK:="+eventname+")");
+        dataset.repl[eventname] =eventname+".Q";
     }
+    return dataset;
 }
 
+function findExpression( expr ) {
+    startpos = expr.indexOf("(");
+    if (startpos>0) {
+
+    }
+
+}
+
+
 function splitFunctionArgs( expr) {
-    newexpr = expr;
+    var dataset = { newexpr: expr, vars:[], fbs:[], repl:{} };
+
     var fn = "";
     var args = [expr.trim()];
     startpos = expr.indexOf("(");
     endpos = expr.lastIndexOf(")");
     if (startpos > 0 && endpos > startpos) {
-        newexpr = "";
+        dataset.newexpr = "";
         fn = expr.substring(0,startpos).trim().toUpperCase();
         args = []; // clear the list
         localargs = expr.substring(startpos+1,endpos).trim().split(',');
         if (localargs.length > 0) {
             // parse the args to check for functions
             localargs.forEach( arg => {
-                args.push( splitFunctionArgs(arg) );
+                subdataset = splitFunctionArgs(arg);
+                dataset = mergedatasets(dataset, subdataset);
+                args.push( subdataset.newexpr );
             })
         }
         //console.log("Parsing:"+fn+" args:"+args);
         switch(fn) {
             case 'SET':
-                addvar( name=args[0], type='OUTPUT', datatype='BOOL');
-                newexpr = args[0]+":=TRUE";
+                dataset.vars.push( {varname:args[0], location:'OUTPUT', datatype:'BOOL'});
+                dataset.newexpr = args[0]+":=TRUE";
                 break;
             case 'RESET':
-                addvar( name=args[0], type='OUTPUT', datatype='BOOL');
-                newexpr = args[0]+":=FALSE";
+                dataset.vars.push( {varname:args[0], location:'OUTPUT', datatype:'BOOL'});
+                dataset.newexpr = args[0]+":=FALSE";
                 break;
             case 'PUT':
-                addvar( name=args[0], type='OUTPUT', datatype='DINT');
-                newexpr = args[0]+":="+args[1];
+                dataset.vars.push( {varname:args[0], location:'OUTPUT', datatype:'DINT'});
+                dataset.newexpr = args[0]+":="+args[1];
                 break;
             case 'TEST':
-                newexpr = "IF "+args[0]+" = "+args[1]+" THEN rt"+args[0]+"(CLK:= NOT "+args[1]+") END_IF";
+                dataset.newexpr = "IF "+args[0]+" = "+args[1]+" THEN rt"+args[0]+"(CLK:= NOT "+args[1]+") END_IF";
                 break;
             case 'GET':
-                addvar( name=args[0], type='INPUT', datatype='DINT');
-                newexpr = args[0];
+                dataset.vars.push( {varname:args[0], location:'INPUT', datatype:'DINT'});
+                dataset.newexpr = args[0];
                 break;
             case 'STARTTIMER':
-                newexpr = "ton"+args[0]+"(PT:="+args[1]+",IN:=TRUE)";
+                dataset.newexpr = "ton"+args[0]+"(PT:="+args[1]+",IN:=TRUE)";
                 break;
             case 'CANCELTIMER':
-                newexpr = "ton"+args[0]+"(IN:=FALSE)";
+                dataset.newexpr = "ton"+args[0]+"(IN:=FALSE)";
                 break;
             case 'ISSET':
-                newexpr = args[0]+"=TRUE";
+                dataset.newexpr = args[0]+"=TRUE";
                 break;
             case 'ISRESET':
-                newexpr = args[0]+"=FALSE";
+                dataset.newexpr = args[0]+"=FALSE";
                 break;
             default:
-                newexpr = expr;
+                dataset.newexpr = expr;
         }
-        //console.log("Result:"+newexpr);
+        //console.log("Result:"+dataset.newexpr);
     
 
     }
-    return newexpr;
+    return dataset;
 }
 
 function parseActivity( expr ) {
     // split in function and arguments (where arguments can be functions again)
-    activity = splitFunctionArgs(expr);
-    addreplacement(from=expr, to=activity);
+    var dataset = splitFunctionArgs(expr);
+    dataset.repl[expr] = dataset.newexpr;
+    return dataset;
 }
 
 function parseGuard( expr ) {
+    var dataset = { vars:[], fbs:[], repl:{} };
     // guards can be a combination of guards, combined by && or ||
+
     var newexpr = "";
     expr.split("&&").forEach( (subexpr1, idx1) => {
         if (idx1>0) { newexpr += " AND "}
         subexpr1.split("||").forEach( (subexpr2, idx2) => {
             if (idx2>0) { newexpr += " OR "}
-            newexpr += splitFunctionArgs(subexpr2);
+
+            subdataset = splitFunctionArgs(subexpr2);
+            dataset = mergedatasets(dataset, subdataset);
+            newexpr += subdataset.newexpr;
         })
     });
-    addreplacement(from=expr, to=newexpr);
+    dataset.repl[expr] =newexpr;
+    return dataset;
 }
 
 
 function extract(element) {
-    var transitions =[],
-    dataset = {};
+    var transitions =[];
     app.repository.select('@UMLTransition').forEach(transition => {
         if(transition._parent._parent._id === element._id) {
             transitions.push(transition);
         }
     });
 
-    ///
+    var dataset = { vars:[], fbs:[], repl:{} };
+
     transitions.forEach( transition => {
         if (transition.triggers.length > 0) {
-            parseEvent( transition.triggers[0].name);
+            subdataset = parseEvent( transition.triggers[0].name);
+            dataset = mergedatasets(dataset, subdataset);
         }
-        parseGuard( transition.guard);
+        subdataset = parseGuard( transition.guard);
+        dataset = mergedatasets(dataset, subdataset);
     })
 
-    return createdataset();
+    var composeddataset = createdataset(dataset);
+    return composeddataset;
 }
 
 exports.extract = extract
