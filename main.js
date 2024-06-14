@@ -10,24 +10,18 @@ const extract = require('./symbolextraction').extract;
 
 
 function handleFsmGenerator(template_file, elements, output) {
+    var error = false;
     if (output) {
 
         console.log(template_file);
         try {
-
-            // const elements = app.repository.select(select);
             for (let i = 0; i < elements.length; i++) {
-
                 const element = elements[i];
-
-                //1. data extraction from element
-
-                //2. data toevoegen aan data{}
-
                 const data = {
                     app: app,
                     element: element,
                     dataset: extract(element)
+                    // dataset: {}
                     // filenamify: filenamify,
                 };
 
@@ -39,33 +33,39 @@ function handleFsmGenerator(template_file, elements, output) {
                     rendered = _rendered
 
                     if (err) {
-                        //ipcRenderer.send("console-log", `[StarUML] ejs err: ${err}`);
+                        ipcRenderer.send("console-log", `[StarUML] ejs err: ${err}`);
                         console.error(err);
+                        error = true;
                     }
                     else {
-                    // ipcRenderer.send("console-log", `[StarUML] ejs done`);
+                        ipcRenderer.send("console-log", `[StarUML] ejs done`);
                     }
                 });
-                console.log(`gen done`);
-                fs.writeFileSync(outputRendered, rendered, { encoding: "utf-8" });
-                console.log(`writen to ${outputRendered}`);
+                if (error == false) {
+                    console.log(`gen done`);
+                    fs.writeFileSync(outputRendered, rendered, { encoding: "utf-8" });
+                    console.log(`writen to ${outputRendered}`);
+                    ipcRenderer.send("console-log", `[StarUML] ${outputRendered}`);
+                }
 
                     // ipcRenderer.send("console-log", `[StarUML] ${outputRendered}`);
                     // } else {
                     //   ipcRenderer.send("console-log", rendered);
                     // }
                 }
-                // ipcRenderer.send(
-                // "console-log",
-                // `[StarUML] Total ${elements.length} files were generated`,
-                // );
+                ipcRenderer.send(
+                "console-log",
+                `[StarUML] Total ${elements.length} files were generated`,
+                );
         } catch (err) {
-            // ipcRenderer.send("console-log", `[Error] ${err.toString()}`);
+            ipcRenderer.send("console-log", `[Error] ${err.toString()}`);
             console.error(err);
+            error = true;
         }
 
 
     }
+    return error;
 }
 
 function handleFsmGenerate() {
@@ -78,19 +78,23 @@ function handleFsmGenerate() {
     }) {
         if (buttonId === 'ok') {
             if (returnValue instanceof type['UMLStateMachine']) {
-                var state_machine = returnValue;
+                var state_machine = returnValue,
+                    error;
                 basedir = path.dirname(app.project.filename),
                     output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
                     template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template"));
                 //.\example_statemachine.mdj -t ./statemachine_fbst.ejs -s "@UMLStateMachine[name=StateMachine4]" -o "out/<%=element.name%>.st"
                 console.log(basedir);
-
-                handleFsmGenerator(template_file, [state_machine], output);
-                if (app.preferences.get("fsmst.gen.showComplete")) {
-                    app.dialogs.showInfoDialog(`Complete code generation for statemachine '${state_machine.name}'.`);
+                error = handleFsmGenerator(template_file, [state_machine], output);
+                if (error == false) {
+                    if (app.preferences.get("fsmst.gen.showComplete")) {
+                        app.dialogs.showInfoDialog(`Complete code generation for statemachine '${state_machine.name}'.`);
+                    }
+                }  else {
+                    app.dialogs.showAlertDialog(`An fatal error occured during code generation for statemachine '${state_machine.name}'.`);
                 }
             } else {
-                    window.alert('Please select a StateMachine!');
+                app.dialogs.showInfoDialog('Please select a StateMachine!');
             }
         };
     })
