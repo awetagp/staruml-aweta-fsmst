@@ -6,6 +6,12 @@
             "text": "Finite Statemachine ST generator",
             "type": "section"
         },
+        "fsmst.gen.showComplete": {
+            "text": "Show complete",
+            "description": "Show dialog after code generation.",
+            "type": "check",
+            "default": true
+        },
         "fsmst.gen.outputFormat": {
             "text": "Output",
             "description": "EJS template string for file output",
