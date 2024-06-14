@@ -27,7 +27,7 @@ function handleFsmGenerator(template_file, elements, output) {
                 const data = {
                     app: app,
                     element: element,
-                    extracted: extract(element)
+                    dataset: extract(element)
                     // filenamify: filenamify,
                 };
 
