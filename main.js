@@ -88,6 +88,9 @@ function handleFsmGenerate() {
                 console.log(basedir);
 
                 handleFsmGenerator(template_file, [state_machine], output);
+                if (app.preferences.get("fsmst.gen.showComplete")) {
+                    app.dialogs.showInfoDialog(`Complete code generation for statemachine '${state_machine.name}'.`);
+                }
             } else {
                     window.alert('Please select a StateMachine!');
             }
