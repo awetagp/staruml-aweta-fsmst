@@ -6,6 +6,7 @@ const fs = require('fs');
 const { ipcRenderer } = require("electron");
 // const filenamify = require("filenamify");
 // const ejs = require("ejs");
+const extract = require('./symbolextraction').extract;
 
 
 function handleFsmGenerator(template_file, elements, output) {
@@ -20,16 +21,13 @@ function handleFsmGenerator(template_file, elements, output) {
                 const element = elements[i];
 
                 //1. data extraction from element
+
                 //2. data toevoegen aan data{}
 
                 const data = {
                     app: app,
-                    element: element
-                    // replacements: {},
-                    // var: {
-
-                    // }
-
+                    element: element,
+                    extracted: extract(element)
                     // filenamify: filenamify,
                 };
 
