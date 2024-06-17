@@ -80,4 +80,4 @@ class Dataset {
 
 exports.Location = Location
 exports.Variable = Variable
-exports.Variable = Dataset
+exports.Dataset = Dataset
