@@ -11,42 +11,52 @@ const extract = require('./symbolextraction').extract;
 
 function handleFsmGenerator(template_file, elements, output) {
     var error = false;
+    const file_extensions = ['.type', '.fun', '.st'];
+    const file_count = app.preferences.get('fsmst.gen.splitFiles') ? 3 : 1;
     if (output) {
-
         console.log(template_file);
+
         try {
             for (let i = 0; i < elements.length; i++) {
+                var  output_masker = output;
                 const element = elements[i];
-                const data = {
-                    app: app,
-                    element: element,
-                    dataset: extract(element)
-                    // dataset: {}
-                    // filenamify: filenamify,
-                };
 
-                const outputRendered = ejs.render(output, data, { async: false });
-                console.log(outputRendered);
-                var rendered = '';
-                // ipcRenderer.send("console-log", `[StarUML] ${path.resolve(template_file)}`);
-                ejs.renderFile(path.resolve(template_file), data, { async: false }, function (err, _rendered) {
-                    rendered = _rendered
+                // if split generate for each file part an own render
+                for (let file_nr =0; file_nr < file_count; file_nr++) {
+                    const data = {
+                        app: app,
+                        element: element,
+                        dataset: extract(element),
+                        render_type: file_count === 1 ? true: file_nr === 0,
+                        render_fun: file_count === 1 ? true: file_nr === 1,
+                        render_st: file_count === 1 ? true: file_nr === 2
+                    };
+                    if (file_count > 1) {
+                        output_masker = output_masker.replace(/\.\w+$/, file_extensions[file_nr]);
+                    }
 
-                    if (err) {
-                        ipcRenderer.send("console-log", `[StarUML] ejs err: ${err}`);
-                        console.error(err);
-                        error = true;
+                    const outputRendered = ejs.render(output_masker, data, { async: false });
+                    console.log(outputRendered);
+                    var rendered = '';
+                    // ipcRenderer.send("console-log", `[StarUML] ${path.resolve(template_file)}`);
+                    ejs.renderFile(path.resolve(template_file), data, { async: false }, function (err, _rendered) {
+                        rendered = _rendered
+
+                        if (err) {
+                            ipcRenderer.send("console-log", `[StarUML] ejs err: ${err}`);
+                            console.error(err);
+                            error = true;
+                        }
+                        else {
+                            ipcRenderer.send("console-log", `[StarUML] ejs done`);
+                        }
+                    });
+                    if (error == false) {
+                        console.log(`gen done`);
+                        fs.writeFileSync(outputRendered, rendered, { encoding: "utf-8" });
+                        console.log(`writen to ${outputRendered}`);
+                        ipcRenderer.send("console-log", `[StarUML] ${outputRendered}`);
                     }
-                    else {
-                        ipcRenderer.send("console-log", `[StarUML] ejs done`);
-                    }
-                });
-                if (error == false) {
-                    console.log(`gen done`);
-                    fs.writeFileSync(outputRendered, rendered, { encoding: "utf-8" });
-                    console.log(`writen to ${outputRendered}`);
-                    ipcRenderer.send("console-log", `[StarUML] ${outputRendered}`);
-                }
 
                     // ipcRenderer.send("console-log", `[StarUML] ${outputRendered}`);
                     // } else {
@@ -54,9 +64,10 @@ function handleFsmGenerator(template_file, elements, output) {
                     // }
                 }
                 ipcRenderer.send(
-                "console-log",
-                `[StarUML] Total ${elements.length} files were generated`,
+                    "console-log",
+                    `[StarUML] Total ${elements.length} statemachine were generated`,
                 );
+            };
         } catch (err) {
             ipcRenderer.send("console-log", `[Error] ${err.toString()}`);
             console.error(err);

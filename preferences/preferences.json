@@ -12,6 +12,12 @@
             "type": "check",
             "default": true
         },
+        "fsmst.gen.splitFiles": {
+            "text": "Split structured text",
+            "description": "Split generated structured text into 3 files; .type, .fun and .st.",
+            "type": "check",
+            "default": true
+        },
         "fsmst.gen.outputFormat": {
             "text": "Output",
             "description": "EJS template string for file output",
