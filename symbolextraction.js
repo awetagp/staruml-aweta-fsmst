@@ -90,11 +90,37 @@ function parseEvent( expr ) {
 }
 
 function findExpression( expr ) {
-    startpos = expr.indexOf("(");
-    if (startpos>0) {
+    var exprStart = -1;
+    var exprEnd = -1;
 
+    // console.log("Searching:"+expr);
+    var validstart=false;
+    var startpos = expr.indexOf("(");
+    while (startpos>0 && validstart==false) {
+        exprStart=startpos-1;
+        while (exprStart>0 && expr[exprStart]!=' ' && expr[exprStart]!='(' ) {
+            exprStart--
+        };
+        if (expr[exprStart]==' ' || expr[exprStart]=='(') exprStart++;
+
+        if ((startpos - exprStart) >2) {
+            validstart=true;
+        } else {
+            startpos = expr.indexOf("(",startpos+1);
+        }
     }
 
+    if (startpos>0) {
+        // find closing bracket
+        var nrbrackets = 1;
+        exprEnd = startpos+1;
+        while (exprEnd < expr.length && nrbrackets>0) {
+            if (expr[exprEnd] === "(") { nrbrackets++ }
+            else if (expr[exprEnd] === ")") { nrbrackets-- }
+            exprEnd++;
+        };
+    };
+    return [exprStart,exprEnd];
 }
 
 
@@ -171,18 +197,31 @@ function parseActivity( expr ) {
 function parseGuard( expr ) {
     var dataset = { vars:[], fbs:[], repl:{} };
     // guards can be a combination of guards, combined by && or ||
-
     var newexpr = "";
-    expr.split("&&").forEach( (subexpr1, idx1) => {
-        if (idx1>0) { newexpr += " AND "}
-        subexpr1.split("||").forEach( (subexpr2, idx2) => {
-            if (idx2>0) { newexpr += " OR "}
+    var remainder = expr;
 
-            subdataset = splitFunctionArgs(subexpr2);
+    // console.log("starting with:"+remainder);
+    while (remainder.length > 0) {
+        var subexprpos = findExpression(remainder);
+
+        if (subexprpos[0]>=0) {
+            newexpr += remainder.substring(0,subexprpos[0]);
+            // console.log("reworking: "+remainder.substring(subexprpos[0],subexprpos[1]))
+            subdataset = splitFunctionArgs(remainder.substring(subexprpos[0],subexprpos[1]));
             dataset = mergedatasets(dataset, subdataset);
+            // console.log("into:"+subdataset.newexpr);
             newexpr += subdataset.newexpr;
-        })
-    });
+            remainder = remainder.substring(subexprpos[1]);    
+        } else {
+            // console.log("No function in:"+remainder);
+            newexpr += remainder;
+            remainder = '';
+        }
+    }
+
+    newexpr = newexpr.replaceAll("&&", " AND ");
+    newexpr = newexpr.replaceAll("||", " OR ");
+
     dataset.repl[expr] =newexpr;
     return dataset;
 }
@@ -198,6 +237,22 @@ function extract(element) {
 
     var dataset = { vars:[], fbs:[], repl:{} };
 
+    element.regions[0].vertices.forEach(state => {
+        if (!(state instanceof type['UMLPseudostate'])) {
+    
+            state.entryActivities.forEach(entry => {
+                subdataset = parseActivity( entry.name);
+                dataset = mergedatasets(dataset, subdataset);
+            });
+            
+            state.exitActivities.forEach(exit => {
+                subdataset = parseActivity( exit.name);
+                dataset = mergedatasets(dataset, subdataset);
+            });
+        };
+    });
+    
+
     transitions.forEach( transition => {
         if (transition.triggers.length > 0) {
             subdataset = parseEvent( transition.triggers[0].name);
@@ -205,10 +260,20 @@ function extract(element) {
         }
         subdataset = parseGuard( transition.guard);
         dataset = mergedatasets(dataset, subdataset);
-    })
 
+        transition.effects.forEach(effect => {
+            subdataset = parseActivity( effect.name);
+            dataset = mergedatasets(dataset, subdataset);
+        });
+    })
+    
     var composeddataset = createdataset(dataset);
     return composeddataset;
 }
 
 exports.extract = extract
+exports.parseEvent = parseEvent
+exports.parseActivity = parseActivity
+exports.parseGuard = parseGuard
+exports.mergedatasets = mergedatasets
+exports.createdataset = createdataset
