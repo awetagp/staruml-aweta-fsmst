@@ -80,7 +80,7 @@ function parseEvent( expr ) {
         dataset.vars.push( {varname:"ton"+timername, location:'VAR', datatype:'TON'});
         dataset.fbs.push("ton"+timername+"()");
         dataset.repl[eventname] ="ton"+timername+".Q";
-    } else {
+    } else if (eventname.length > 0) {
         dataset.vars.push( {varname:eventname, location:'INPUT', datatype:'BOOL'});
         dataset.vars.push( { varname:"rt"+eventname, location:'VAR', datatype:'R_TRIG'});
         dataset.fbs.push("rt"+eventname+"(CLK:="+eventname+")");
