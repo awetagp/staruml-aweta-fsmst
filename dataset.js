@@ -48,13 +48,32 @@ class Dataset {
     body_pre = [];
     replacements = {};
 
-    makeUnique() {
+    cleanData() {
+        // make it unique and remove empty variables
         this.var_private = clean_var_array(this.var_private);
         this.var_in = clean_var_array(this.var_in);
         this.var_out = clean_var_array(this.var_out);
         this.var_inout = clean_var_array(this.var_inout);
 
         this.body_pre = Array.from(Set(this.body_pre));
+    }
+
+    addVar(aVar) {
+        switch (aVar.Location) {
+            case Location.VarIn:
+                this.var_in.push(aVar);
+                break;
+            case Location.VarOut:
+                this.var_out.push(aVar);
+                break;
+            case Location.VarInOut:
+                    this.var_inout.push(aVar);
+                    break;
+            default:
+                    this.var_private.push(aVar);
+                    break;
+
+        }
     }
 }
 
