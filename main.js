@@ -128,6 +128,10 @@ function handleFsmGenerateCli(message) {
             showTheUsage = false;
 
         // ipcRenderer.send("console-log", message);
+        if (typeof message == 'string') {
+            message = [message];
+        }
+
         message.forEach(arg => {
             if (arg == 'help' || arg == 'h') {
                 showTheUsage = true;
@@ -152,6 +156,9 @@ function handleFsmGenerateCli(message) {
         if ('s' in _args) {
             elements = app.repository.select(_args['s']);
         }
+        else {
+            elements = app.repository.select('@UMLStateMachine');
+        }
         if ('o' in _args) {
             output = _args['o'];
         }
@@ -159,7 +166,7 @@ function handleFsmGenerateCli(message) {
             splitFiles = Boolean(Number(_args['m']));
         }
 
-        if (elements) {
+        if (elements && elements.length>=1) {
             error = handleFsmGenerator(templateFile, elements, output, splitFiles);
             ipcRenderer.send("console-log", "Done it!");
         } else {
