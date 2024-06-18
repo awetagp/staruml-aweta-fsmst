@@ -63,11 +63,12 @@ function handleFsmGenerator(template_file, elements, output, splitfiles) {
                     //   ipcRenderer.send("console-log", rendered);
                     // }
                 }
-                ipcRenderer.send(
-                    "console-log",
-                    `[StarUML|FSM_ST] Total ${elements.length} statemachine(s) were generated`,
-                );
             };
+            ipcRenderer.send(
+                "console-log",
+                `[StarUML|FSM_ST] Total ${elements.length} statemachine(s) were generated`,
+            );
+
         } catch (err) {
             ipcRenderer.send("console-log", `[FSM_ST|Error] ${err.toString()}`);
             console.error(err);
