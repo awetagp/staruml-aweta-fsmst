@@ -1,79 +1,26 @@
 
+const Dataset = require('./dataset');
 
-function createdataset(dataset) {
-    var extendeddataset = { var_in:[], 
-                    var_out:[], 
-                    var_private:[], 
-                    var_inout:[], 
-                    body_pre:[],
-                    replacements:{} };
-
-    dataset.vars.forEach( item => {
-        if (item.location == "INPUT") {
-            extendeddataset.var_in.push(item.varname+" : "+item.datatype);
-        }
-        if (item.location == "OUTPUT") {
-            extendeddataset.var_out.push(item.varname+" : "+item.datatype);
-        }
-        if (item.location == "VAR") {
-            extendeddataset.var_private.push(item.varname+" : "+item.datatype);
-        }
-        if (item.location == "IN_OUT") {
-            extendeddataset.var_inout.push(item.varname+" : "+item.datatype);
-        }
-    })
-
-    dataset.fbs.forEach( item => {
-        if (item != "") {
-            extendeddataset.body_pre.push(item);
-        }
-    })
-
-    for(let [from, to] of Object.entries(dataset.repl)) {
-        if (from != to && from != "") {
-            extendeddataset.replacements[from] = to; 
-        }
-    }
-
-    return extendeddataset;
-}
-
-function mergedatasets(sourceset, mergeset) {
-    var dataset = sourceset;
-
-    dataset.fbs = sourceset.fbs.concat(mergeset.fbs);
-    dataset.fbs = dataset.fbs.filter((item,pos) => dataset.fbs.indexOf(item) === pos) // make unique
-
-    dataset.repl = Object.assign({}, sourceset.repl ,mergeset.repl);
-
-    mergeset.vars.forEach(item => {
-        var exists=false;
-        dataset.vars.forEach( source_item => {
-            if (source_item.varname == item.varname) {
-                exists=true;
-                if (source_item.location != item.location) {
-                    source_item.location = "IN_OUT";
-                }
-            }
-        })
-        if (exists==false) {
-            dataset.vars.push(item);
-        }
-    })
-
-    return dataset;
-}
 
 function extractvars(dataset) {
     var varslist = [];
-    dataset.vars.forEach(item => {
+    dataset.var_in.forEach(item => {
+        varslist.push(item.varname);
+    })
+    dataset.var_out.forEach(item => {
+        varslist.push(item.varname);
+    })
+    dataset.var_inout.forEach(item => {
+        varslist.push(item.varname);
+    })
+    dataset.var_private.forEach(item => {
         varslist.push(item.varname);
     })
     return varslist;
 }
 
 function parseEvent( expr, existingvars ) {
-    var dataset = { vars:[], fbs:[], repl:{} };
+    var dataset = new Dataset.Dataset();
     eventname = expr.trim();
     // check if event allready parsed
     // there is a difference with timer events and other events
@@ -81,16 +28,16 @@ function parseEvent( expr, existingvars ) {
         timername = eventname.slice(2,-7);
         if (existingvars.includes("ton"+timername) == false)
         {
-            dataset.vars.push( {varname:"ton"+timername, location:'VAR', datatype:'TON'});
-            dataset.fbs.push("ton"+timername+"()");
-            dataset.repl[eventname] ="ton"+timername+".Q";
+            dataset.addVar(new Dataset.Variable("ton"+timername, 'TON', Dataset.Location.Var));
+            dataset.addBody("ton"+timername+"()");
+            dataset.addReplacement(expr,"ton"+timername+".Q");
         };
     } else if (eventname.length > 0) {
         if (existingvars.includes(eventname) == false) {
-            dataset.vars.push( {varname:eventname, location:'INPUT', datatype:'BOOL'});
-            dataset.vars.push( { varname:"rt"+eventname, location:'VAR', datatype:'R_TRIG'});
-            dataset.fbs.push("rt"+eventname+"(CLK:="+eventname+")");
-            dataset.repl[eventname] =eventname+".Q";
+            dataset.addVar(new Dataset.Variable(eventname, 'BOOL', Dataset.Location.VarIn));
+            dataset.addVar(new Dataset.Variable("rt"+eventname, 'R_TRIG', Dataset.Location.Var));
+            dataset.addBody("rt"+eventname+"(CLK:="+eventname+")");
+            dataset.addReplacement(expr, eventname+".Q");
         };
     }
     return dataset;
@@ -132,79 +79,81 @@ function findExpression( expr ) {
 
 
 function splitFunctionArgs( expr) {
-    var dataset = { newexpr: expr, vars:[], fbs:[], repl:{} };
+    var dataset = new Dataset.Dataset();
 
     var fn = "";
     var args = [expr.trim()];
+    var newExpr = expr;
     startpos = expr.indexOf("(");
     endpos = expr.lastIndexOf(")");
     if (startpos > 0 && endpos > startpos) {
-        dataset.newexpr = "";
+        newExpr = '';
         fn = expr.substring(0,startpos).trim().toUpperCase();
         args = []; // clear the list
         localargs = expr.substring(startpos+1,endpos).trim().split(',');
         if (localargs.length > 0) {
             // parse the args to check for functions
             localargs.forEach( arg => {
-                subdataset = splitFunctionArgs(arg);
-                dataset = mergedatasets(dataset, subdataset);
-                args.push( subdataset.newexpr );
+                dataset.merge( splitFunctionArgs(arg) );
+                args.push( dataset.replacements["newexpr"] );
             })
         }
-        //console.log("Parsing:"+fn+" args:"+args);
+        // console.log("Parsing:"+fn+" args:"+args);
         switch(fn) {
             case 'SET':
-                dataset.vars.push( {varname:args[0], location:'OUTPUT', datatype:'BOOL'});
-                dataset.newexpr = args[0]+":=TRUE";
+                dataset.addVar(new Dataset.Variable(args[0], 'BOOL', Dataset.Location.VarOut));
+                newExpr = args[0]+":=TRUE";
                 break;
             case 'RESET':
-                dataset.vars.push( {varname:args[0], location:'OUTPUT', datatype:'BOOL'});
-                dataset.newexpr = args[0]+":=FALSE";
+                dataset.addVar(new Dataset.Variable(args[0], 'BOOL', Dataset.Location.VarOut));
+                newExpr = args[0]+":=FALSE";
                 break;
             case 'PUT':
-                dataset.vars.push( {varname:args[0], location:'OUTPUT', datatype:'DINT'});
-                dataset.newexpr = args[0]+":="+args[1];
+                dataset.addVar(new Dataset.Variable(args[0], 'DINT', Dataset.Location.VarOut));
+                newExpr = args[0]+":="+args[1];
                 break;
             case 'TEST':
-                dataset.newexpr = "IF "+args[0]+" = "+args[1]+" THEN rt"+args[0]+"(CLK:= NOT "+args[1]+"); END_IF";
+                newExpr = "IF rt"+args[0]+".CLK = TRUE THEN rt"+args[0]+"(CLK:= FALSE); END_IF";
                 break;
             case 'GET':
-                dataset.vars.push( {varname:args[0], location:'INPUT', datatype:'DINT'});
-                dataset.newexpr = args[0];
+                dataset.addVar(new Dataset.Variable(args[0], 'DINT', Dataset.Location.VarIn));
+                newExpr = args[0];
                 break;
             case 'STARTTIMER':
-                dataset.newexpr = "ton"+args[0]+"(PT:="+args[1]+",IN:=TRUE)";
+                newExpr = "ton"+args[0]+"(PT:=DINT_TO_TIME("+args[1]+"),IN:=TRUE)";
                 break;
             case 'CANCELTIMER':
-                dataset.newexpr = "ton"+args[0]+"(IN:=FALSE)";
+                newExpr = "ton"+args[0]+"(IN:=FALSE)";
                 break;
             case 'ISSET':
-                dataset.vars.push( {varname:args[0], location:'INPUT', datatype:'BOOL'});
-                dataset.newexpr = args[0]+"=TRUE";
+                dataset.addVar(new Dataset.Variable(args[0], 'BOOL', Dataset.Location.VarIn));
+                newExpr = args[0]+"=TRUE";
                 break;
             case 'ISRESET':
-                dataset.vars.push( {varname:args[0], location:'INPUT', datatype:'BOOL'});
-                dataset.newexpr = args[0]+"=FALSE";
+                dataset.addVar(new Dataset.Variable(args[0], 'BOOL', Dataset.Location.VarIn));
+                newExpr = args[0]+"=FALSE";
                 break;
             default:
-                dataset.newexpr = expr;
+                newExpr = expr ;
         }
         //console.log("Result:"+dataset.newexpr);
     
 
     }
+    dataset.addReplacement('newexpr', newExpr );
     return dataset;
 }
 
 function parseActivity( expr ) {
     // split in function and arguments (where arguments can be functions again)
     var dataset = splitFunctionArgs(expr);
-    dataset.repl[expr] = dataset.newexpr;
+    dataset.addReplacement(expr, dataset.replacements["newexpr"]);
+    dataset.replacements['newexpr'] =''; // remove this temp replacement
     return dataset;
 }
 
 function parseGuard( expr ) {
-    var dataset = { vars:[], fbs:[], repl:{} };
+    var dataset = new Dataset.Dataset();
     // guards can be a combination of guards, combined by && or ||
     var newexpr = "";
     var remainder = expr;
@@ -216,10 +165,9 @@ function parseGuard( expr ) {
         if (subexprpos[0]>=0) {
             newexpr += remainder.substring(0,subexprpos[0]);
             // console.log("reworking: "+remainder.substring(subexprpos[0],subexprpos[1]))
-            subdataset = splitFunctionArgs(remainder.substring(subexprpos[0],subexprpos[1]));
-            dataset = mergedatasets(dataset, subdataset);
+            dataset.merge( splitFunctionArgs(remainder.substring(subexprpos[0],subexprpos[1])));
             // console.log("into:"+subdataset.newexpr);
-            newexpr += subdataset.newexpr;
+            newexpr += dataset.replacements["newexpr"];
             remainder = remainder.substring(subexprpos[1]);    
         } else {
             // console.log("No function in:"+remainder);
@@ -231,7 +179,8 @@ function parseGuard( expr ) {
     newexpr = newexpr.replaceAll("&&", " AND ");
     newexpr = newexpr.replaceAll("||", " OR ");
 
-    dataset.repl[expr] =newexpr;
+    dataset.addReplacement(expr, newexpr);
+    dataset.replacements['newexpr'] =''; // remove this temp replacement
     return dataset;
 }
 
@@ -244,20 +193,18 @@ function extract(element) {
         }
     });
 
-    var dataset = { vars:[], fbs:[], repl:{} };
+    var dataset = new Dataset.Dataset();
     var createdvars = []; // array of created var names
 
     element.regions[0].vertices.forEach(state => {
         if (!(state instanceof type['UMLPseudostate'])) {
     
             state.entryActivities.forEach(entry => {
-                subdataset = parseActivity( entry.name);
-                dataset = mergedatasets(dataset, subdataset);
+                dataset.merge( parseActivity( entry.name) );
             });
             
             state.exitActivities.forEach(exit => {
-                subdataset = parseActivity( exit.name);
-                dataset = mergedatasets(dataset, subdataset);
+                dataset.merge( parseActivity( exit.name) );
             });
         };
     });
@@ -266,27 +213,21 @@ function extract(element) {
     createdvars = extractvars(dataset);
     transitions.forEach( transition => {
         if (transition.triggers.length > 0) {
-            subdataset = parseEvent( transition.triggers[0].name, createdvars);
-            dataset = mergedatasets(dataset, subdataset);
+            dataset.merge( parseEvent( transition.triggers[0].name, createdvars) );
             createdvars = extractvars(dataset);
         }
-        subdataset = parseGuard( transition.guard);
-        dataset = mergedatasets(dataset, subdataset);
+        dataset.merge( parseGuard( transition.guard) );
 
         transition.effects.forEach(effect => {
-            subdataset = parseActivity( effect.name);
-            dataset = mergedatasets(dataset, subdataset);
+            dataset.merge( parseActivity( effect.name) );
         });
     })
     
-    var composeddataset = createdataset(dataset);
-    return composeddataset;
+    return dataset;
 }
 
 exports.extract = extract
 exports.parseEvent = parseEvent
 exports.parseActivity = parseActivity
 exports.parseGuard = parseGuard
-exports.mergedatasets = mergedatasets
 exports.extractvars = extractvars
-exports.createdataset = createdataset
