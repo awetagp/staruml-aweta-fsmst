@@ -9,10 +9,10 @@ const { ipcRenderer } = require("electron");
 const extract = require('./symbolextraction').extract;
 
 
-function handleFsmGenerator(template_file, elements, output) {
+function handleFsmGenerator(template_file, elements, output, splitfiles) {
     var error = false;
     const file_extensions = ['.type', '.fun', '.st'];
-    const file_count = app.preferences.get('fsmst.gen.splitFiles') ? 3 : 1;
+    const file_count = splitfiles ? 3 : 1;
     if (output) {
         console.log(template_file);
 
@@ -43,19 +43,19 @@ function handleFsmGenerator(template_file, elements, output) {
                         rendered = _rendered
 
                         if (err) {
-                            ipcRenderer.send("console-log", `[StarUML] ejs err: ${err}`);
+                            ipcRenderer.send("console-log", `[StarUML|FSM_ST] ejs err: ${err}`);
                             console.error(err);
                             error = true;
                         }
                         else {
-                            ipcRenderer.send("console-log", `[StarUML] ejs done`);
+                            // ipcRenderer.send("console-log", `[StarUML] ejs done`);
                         }
                     });
                     if (error == false) {
                         console.log(`gen done`);
                         fs.writeFileSync(outputRendered, rendered, { encoding: "utf-8" });
                         console.log(`writen to ${outputRendered}`);
-                        ipcRenderer.send("console-log", `[StarUML] ${outputRendered}`);
+                        ipcRenderer.send("console-log", `[StarUML|FSM_ST] Generated '${outputRendered}'`);
                     }
 
                     // ipcRenderer.send("console-log", `[StarUML] ${outputRendered}`);
@@ -65,11 +65,11 @@ function handleFsmGenerator(template_file, elements, output) {
                 }
                 ipcRenderer.send(
                     "console-log",
-                    `[StarUML] Total ${elements.length} statemachine were generated`,
+                    `[StarUML|FSM_ST] Total ${elements.length} statemachine(s) were generated`,
                 );
             };
         } catch (err) {
-            ipcRenderer.send("console-log", `[Error] ${err.toString()}`);
+            ipcRenderer.send("console-log", `[FSM_ST|Error] ${err.toString()}`);
             console.error(err);
             error = true;
         }
@@ -80,9 +80,6 @@ function handleFsmGenerator(template_file, elements, output) {
 }
 
 function handleFsmGenerate() {
-
-
-
     app.elementPickerDialog.showDialog('Select a base model to generate codes', null, type.UMLStateMachine).then(function ({
         buttonId,
         returnValue
@@ -93,10 +90,11 @@ function handleFsmGenerate() {
                     error;
                 basedir = path.dirname(app.project.filename),
                     output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
-                    template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template"));
+                    template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template")),
+                    splitFiles = app.preferences.get('fsmst.gen.splitFiles');
                 //.\example_statemachine.mdj -t ./statemachine_fbst.ejs -s "@UMLStateMachine[name=StateMachine4]" -o "out/<%=element.name%>.st"
                 console.log(basedir);
-                error = handleFsmGenerator(template_file, [state_machine], output);
+                error = handleFsmGenerator(template_file, [state_machine], output, splitFiles);
                 if (error == false) {
                     if (app.preferences.get("fsmst.gen.showComplete")) {
                         app.dialogs.showInfoDialog(`Complete code generation for statemachine '${state_machine.name}'.`);
@@ -111,34 +109,62 @@ function handleFsmGenerate() {
     })
 
 }
+
+function showUsage() {
+    ipcRenderer.send("console-log", "staruml exec -a help");
+    ipcRenderer.send("console-log", "staruml exec -a \"s=@UMLStateMachine[name=StateMachine1]\" [-a m=1] [-a \"o=out/<%=element.name%>.st\"] <projectfile.mdj> -c fsm_st:cligenerate");
+    ipcRenderer.send("console-log", "s = element selector(should be statemachines)\nm = generate multiple files(type, fun ,and st) per statemachine\no = outputfile location and naming");
+}
+
 function handleFsmGenerateCli(message) {
     if (message) {
         var _args = {},
-            elements;
+            basedir = path.dirname(app.project.filename),
+            output = output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
+            splitFiles = true,
+            templateFile = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template")),
+            elements,
+            showTheUsage = false;
+
+        // ipcRenderer.send("console-log", message);
         message.forEach(arg => {
-            const parts = arg.split("=", 2);
-            ipcRenderer.send("console-log", arg);
-            ipcRenderer.send("console-log", parts);
-            _args[parts[0]] = parts[1];
+            if (arg == 'help' || arg == 'h') {
+                showTheUsage = true;
+                return;
+            }
+            if (arg[1] == '=') {
+                _args[arg[0]] = arg.substr(2);
+            }
         })
 
-        ipcRenderer.send("console-log", message);
-        ipcRenderer.send("console-log", _args);
-
-        if ('s' in _args) {
-            elements = app.repository.select(_args['s']);
-            // ipcRenderer.send("console-log", elements);
+        if (showTheUsage || 'h' in _args || arguments.length===0 ) {
+            showUsage();
+            return;
         }
 
-        console.log('Doei');
 
+        // ipcRenderer.send("console-log", _args);
 
+        if ('t' in _args) {
+            templateFile = _args['t'];
+        }
+        if ('s' in _args) {
+            elements = app.repository.select(_args['s']);
+        }
+        if ('o' in _args) {
+            output = _args['o'];
+        }
+        if ('m' in _args) {
+            splitFiles = Boolean(Number(_args['m']));
+        }
 
-
-
-
-
-        ipcRenderer.send("console-log", "Done it!");
+        if (elements) {
+            error = handleFsmGenerator(templateFile, elements, output, splitFiles);
+            ipcRenderer.send("console-log", "Done it!");
+        } else {
+            ipcRenderer.send("console-log", "Invalid arguments!");
+            showUsage();
+        }
     }
 }
 
