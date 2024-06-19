@@ -11,7 +11,7 @@ const extract = require('./symbolextraction').extract;
 
 function handleFsmGenerator(template_file, elements, output, splitfiles) {
     var error = false;
-    const file_extensions = ['.type', '.fun', '.st'];
+    const file_extensions = ['.typ', '.fun', '.st'];
     const file_count = splitfiles ? 3 : 1;
     if (output) {
         console.log(template_file);

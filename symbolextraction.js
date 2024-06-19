@@ -2,43 +2,21 @@
 const Dataset = require('./dataset');
 
 
-function extractvars(dataset) {
-    var varslist = [];
-    dataset.var_in.forEach(item => {
-        varslist.push(item.varname);
-    })
-    dataset.var_out.forEach(item => {
-        varslist.push(item.varname);
-    })
-    dataset.var_inout.forEach(item => {
-        varslist.push(item.varname);
-    })
-    dataset.var_private.forEach(item => {
-        varslist.push(item.varname);
-    })
-    return varslist;
-}
-
-function parseEvent( expr, existingvars ) {
+function parseEvent( expr ) {
     var dataset = new Dataset.Dataset();
     eventname = expr.trim();
     // check if event allready parsed
     // there is a difference with timer events and other events
-    if (eventname.startsWith("ev") && eventname.endsWith("Timeout")) {
-        timername = eventname.slice(2,-7);
-        if (existingvars.includes("ton"+timername) == false)
-        {
-            dataset.addVar(new Dataset.Variable("ton"+timername, 'TON', Dataset.Location.Var));
-            dataset.addBody("ton"+timername+"()");
-            dataset.addReplacement(expr,"ton"+timername+".Q");
-        };
+    if (eventname.endsWith("Timeout")) {
+        timername = eventname.slice(0,-7);
+        dataset.addVar(new Dataset.Variable("ton"+timername, 'TON', Dataset.Location.Var));
+        dataset.addBody("ton"+timername+"()");
+        dataset.addReplacement(expr,"ton"+timername+".Q");
     } else if (eventname.length > 0) {
-        if (existingvars.includes(eventname) == false) {
-            dataset.addVar(new Dataset.Variable(eventname, 'BOOL', Dataset.Location.VarIn));
-            dataset.addVar(new Dataset.Variable("rt"+eventname, 'R_TRIG', Dataset.Location.Var));
-            dataset.addBody("rt"+eventname+"(CLK:="+eventname+")");
-            dataset.addReplacement(expr, eventname+".Q");
-        };
+        dataset.addVar(new Dataset.Variable(eventname, 'BOOL', Dataset.Location.VarIn));
+        dataset.addVar(new Dataset.Variable("rt"+eventname, 'R_TRIG', Dataset.Location.Var));
+        dataset.addBody("rt"+eventname+"(CLK:="+eventname+")");
+        dataset.addReplacement(expr, "rt"+eventname+".Q");
     }
     return dataset;
 }
@@ -113,7 +91,7 @@ function splitFunctionArgs( expr) {
                 newExpr = args[0]+":="+args[1];
                 break;
             case 'TEST':
-                newExpr = "IF rt"+args[0]+".CLK = TRUE THEN rt"+args[0]+"(CLK:= FALSE); END_IF";
+                newExpr = "rt"+args[0]+"(CLK:=FALSE)";
                 break;
             case 'GET':
                 dataset.addVar(new Dataset.Variable(args[0], 'DINT', Dataset.Location.VarIn));
@@ -194,27 +172,26 @@ function extract(element) {
     });
 
     var dataset = new Dataset.Dataset();
-    var createdvars = []; // array of created var names
 
-    element.regions[0].vertices.forEach(state => {
-        if (!(state instanceof type['UMLPseudostate'])) {
-    
-            state.entryActivities.forEach(entry => {
-                dataset.merge( parseActivity( entry.name) );
-            });
-            
-            state.exitActivities.forEach(exit => {
-                dataset.merge( parseActivity( exit.name) );
-            });
-        };
-    });
+    element.regions.forEach( region => {
+        region.vertices.forEach(state => {
+            if (!(state instanceof type['UMLPseudostate'])) {
+        
+                state.entryActivities.forEach(entry => {
+                    dataset.merge( parseActivity( entry.name) );
+                });
+                
+                state.exitActivities.forEach(exit => {
+                    dataset.merge( parseActivity( exit.name) );
+                });
+            };
+        });
+    })
     
 
-    createdvars = extractvars(dataset);
     transitions.forEach( transition => {
         if (transition.triggers.length > 0) {
-            dataset.merge( parseEvent( transition.triggers[0].name, createdvars) );
-            createdvars = extractvars(dataset);
+            dataset.merge( parseEvent( transition.triggers[0].name ) );
         }
         dataset.merge( parseGuard( transition.guard) );
 
@@ -230,4 +207,3 @@ exports.extract = extract
 exports.parseEvent = parseEvent
 exports.parseActivity = parseActivity
 exports.parseGuard = parseGuard
-exports.extractvars = extractvars
