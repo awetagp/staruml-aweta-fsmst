@@ -2,16 +2,19 @@
 const Dataset = require('./dataset');
 
 
-function parseEvent( expr ) {
+function parseEvent( expr, existingVars ) {
     var dataset = new Dataset.Dataset();
     eventname = expr.trim().replaceAll(' ','_');
     // check if event allready parsed
+    let found=false;
+    existingVars.forEach(element => {
+                if (element.name === "ton"+eventname) {
+                    found=true;
+                }
+            });
     // there is a difference with timer events and other events
-    if (eventname.endsWith("Timeout")) {
-        timername = eventname.slice(0,-7);
-        dataset.addVar(new Dataset.Variable("ton"+timername, 'TON', Dataset.Location.Var));
-        dataset.addBody("ton"+timername+"()");
-        dataset.addReplacement(expr,"ton"+timername+".Q");
+    if (found) {
+        dataset.addReplacement(expr,"ton"+eventname+".Q");
     } else if (eventname.length > 0) {
         dataset.addVar(new Dataset.Variable(eventname, 'BOOL', Dataset.Location.VarIn));
         dataset.addVar(new Dataset.Variable("rt"+eventname, 'R_TRIG', Dataset.Location.Var));
@@ -24,16 +27,16 @@ function parseEvent( expr ) {
 function findExpression( expr ) {
     var exprStart = -1;
     var exprEnd = -1;
-
+    const allowedChars = [' ', '(', '+', '-'];
     // console.log("Searching:"+expr);
     var validstart=false;
     var startpos = expr.indexOf("(");
     while (startpos>0 && validstart==false) {
         exprStart=startpos-1;
-        while (exprStart>0 && expr[exprStart]!=' ' && expr[exprStart]!='(' ) {
+        while (exprStart>0 && allowedChars.includes(expr[exprStart] )==false ) {
             exprStart--
         };
-        if (expr[exprStart]==' ' || expr[exprStart]=='(') exprStart++;
+        if (allowedChars.includes(expr[exprStart])==true) exprStart++;
 
         if ((startpos - exprStart) >2) {
             validstart=true;
@@ -68,12 +71,32 @@ function splitFunctionArgs( expr) {
         newExpr = '';
         fn = expr.substring(0,startpos).trim().toUpperCase();
         args = []; // clear the list
-        localargs = expr.substring(startpos+1,endpos).trim().split(',');
+        var localargs = expr.substring(startpos+1,endpos).trim().split(',');
         if (localargs.length > 0) {
             // parse the args to check for functions
             localargs.forEach( arg => {
-                dataset.merge( splitFunctionArgs(arg) );
-                args.push( dataset.replacements["newexpr"] );
+                var localnewexpr='';
+                var remainder = arg;
+                while (remainder.length > 0) {
+                    var subexprpos = findExpression(remainder);
+            
+                    if (subexprpos[0]>=0) {
+                        localnewexpr += remainder.substring(0,subexprpos[0]);
+                        // console.log("reworking: "+remainder.substring(subexprpos[0],subexprpos[1]))
+                        dataset.merge( splitFunctionArgs(remainder.substring(subexprpos[0],subexprpos[1])));
+                        // console.log("into:"+subdataset.newexpr);
+                        localnewexpr += dataset.replacements["newexpr"];
+                        remainder = remainder.substring(subexprpos[1]);
+                    } else {
+                        // console.log("No function in:"+remainder);
+                        localnewexpr += remainder;
+                        remainder = '';
+                    }
+                }
+                args.push( localnewexpr );
+
+                // dataset.merge( splitFunctionArgs(arg) );
+                // args.push( dataset.replacements["newexpr"] );
             })
         }
         // console.log("Parsing:"+fn+" args:"+args);
@@ -98,10 +121,14 @@ function splitFunctionArgs( expr) {
                 newExpr = args[0];
                 break;
             case 'STARTTIMER':
-                newExpr = "ton"+args[0]+"(PT:=DINT_TO_TIME("+args[1]+"),IN:=TRUE)";
+                var timername = args[0].trim().replaceAll(' ','_');
+                dataset.addVar(new Dataset.Variable("ton"+timername, 'TON', Dataset.Location.Var));
+                dataset.addBody("ton"+timername+"()");
+                newExpr = "ton"+timername+"(PT:=DINT_TO_TIME("+args[1]+"),IN:=TRUE)";
                 break;
             case 'CANCELTIMER':
-                newExpr = "ton"+args[0]+"(IN:=FALSE)";
+                var timername = args[0].trim().replaceAll(' ','_');
+                newExpr = "ton"+timername+"(IN:=FALSE)";
                 break;
             case 'ISSET':
                 dataset.addVar(new Dataset.Variable(args[0], 'BOOL', Dataset.Location.VarIn));
@@ -175,9 +202,6 @@ function extract(element) {
     var _used_states= [];
 
     transitions.forEach( transition => {
-        if (transition.triggers.length > 0) {
-            dataset.merge( parseEvent( transition.triggers[0].name) );
-        }
         dataset.merge( parseGuard( transition.guard) );
 
         transition.effects.forEach(effect => {
@@ -201,6 +225,11 @@ function extract(element) {
         };
     });
 
+    transitions.forEach( transition => {
+        if (transition.triggers.length > 0) {
+            dataset.merge( parseEvent( transition.triggers[0].name, dataset.var_private ) );
+        }
+    })
 
     return dataset;
 }
