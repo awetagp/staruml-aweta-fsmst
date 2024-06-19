@@ -172,22 +172,7 @@ function extract(element) {
     });
 
     var dataset = new Dataset.Dataset();
-
-    element.regions.forEach( region => {
-        region.vertices.forEach(state => {
-            if (!(state instanceof type['UMLPseudostate'])) {
-        
-                state.entryActivities.forEach(entry => {
-                    dataset.merge( parseActivity( entry.name) );
-                });
-                
-                state.exitActivities.forEach(exit => {
-                    dataset.merge( parseActivity( exit.name) );
-                });
-            };
-        });
-    })
-    
+    var _used_states= [];
 
     transitions.forEach( transition => {
         if (transition.triggers.length > 0) {
@@ -198,7 +183,24 @@ function extract(element) {
         transition.effects.forEach(effect => {
             dataset.merge( parseActivity( effect.name) );
         });
+        _used_states.push(transition.source);
+        _used_states.push(transition.target);
     })
+
+    _used_states = Array.from(new Set(_used_states));
+    _used_states.forEach(state => {
+        if (!(state instanceof type['UMLPseudostate'])) {
+    
+            state.entryActivities.forEach(entry => {
+                dataset.merge( parseActivity( entry.name) );
+            });
+            
+            state.exitActivities.forEach(exit => {
+                dataset.merge( parseActivity( exit.name) );
+            });
+        };
+    });
+
     
     return dataset;
 }
