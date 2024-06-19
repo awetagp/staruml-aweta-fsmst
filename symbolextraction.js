@@ -4,7 +4,7 @@ const Dataset = require('./dataset');
 
 function parseEvent( expr ) {
     var dataset = new Dataset.Dataset();
-    eventname = expr.trim();
+    eventname = expr.trim().replaceAll(' ','_');
     // check if event allready parsed
     // there is a difference with timer events and other events
     if (eventname.endsWith("Timeout")) {
@@ -115,7 +115,7 @@ function splitFunctionArgs( expr) {
                 newExpr = expr ;
         }
         //console.log("Result:"+dataset.newexpr);
-    
+
 
     }
     dataset.addReplacement('newexpr', newExpr );
@@ -146,7 +146,7 @@ function parseGuard( expr ) {
             dataset.merge( splitFunctionArgs(remainder.substring(subexprpos[0],subexprpos[1])));
             // console.log("into:"+subdataset.newexpr);
             newexpr += dataset.replacements["newexpr"];
-            remainder = remainder.substring(subexprpos[1]);    
+            remainder = remainder.substring(subexprpos[1]);
         } else {
             // console.log("No function in:"+remainder);
             newexpr += remainder;
@@ -176,7 +176,7 @@ function extract(element) {
 
     transitions.forEach( transition => {
         if (transition.triggers.length > 0) {
-            dataset.merge( parseEvent( transition.triggers[0].name ) );
+            dataset.merge( parseEvent( transition.triggers[0].name) );
         }
         dataset.merge( parseGuard( transition.guard) );
 
@@ -190,18 +190,18 @@ function extract(element) {
     _used_states = Array.from(new Set(_used_states));
     _used_states.forEach(state => {
         if (!(state instanceof type['UMLPseudostate'])) {
-    
+
             state.entryActivities.forEach(entry => {
                 dataset.merge( parseActivity( entry.name) );
             });
-            
+
             state.exitActivities.forEach(exit => {
                 dataset.merge( parseActivity( exit.name) );
             });
         };
     });
 
-    
+
     return dataset;
 }
 
