@@ -27,16 +27,15 @@ function parseEvent( expr, existingVars ) {
 function findExpression( expr ) {
     var exprStart = -1;
     var exprEnd = -1;
-    const allowedChars = [' ', '(', '+', '-'];
     // console.log("Searching:"+expr);
     var validstart=false;
     var startpos = expr.indexOf("(");
     while (startpos>0 && validstart==false) {
         exprStart=startpos-1;
-        while (exprStart>0 && allowedChars.includes(expr[exprStart] )==false ) {
+        while (exprStart>0 && expr[exprStart].match(/[a-z0-9]/i)) { 
             exprStart--
         };
-        if (allowedChars.includes(expr[exprStart])==true) exprStart++;
+        if (expr[exprStart].match(/[a-z0-9]/i)==false) exprStart++;
 
         if ((startpos - exprStart) >2) {
             validstart=true;
