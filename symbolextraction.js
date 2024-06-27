@@ -32,10 +32,10 @@ function findExpression( expr ) {
     var startpos = expr.indexOf("(");
     while (startpos>0 && validstart==false) {
         exprStart=startpos-1;
-        while (exprStart>0 && expr[exprStart].match(/[a-z0-9]/i)) { 
+        while (exprStart>0 && expr[exprStart].match(/[a-z]/i)) { 
             exprStart--
         };
-        if (expr[exprStart].match(/[a-z0-9]/i)==false) exprStart++;
+        if (expr[exprStart].match(/[a-z]/i)==null) exprStart++;
 
         if ((startpos - exprStart) >2) {
             validstart=true;
