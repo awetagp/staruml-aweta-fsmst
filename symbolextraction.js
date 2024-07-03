@@ -119,6 +119,10 @@ function splitFunctionArgs( expr) {
                 dataset.addVar(new Dataset.Variable(args[0], 'DINT', Dataset.Location.VarIn));
                 newExpr = args[0];
                 break;
+            case 'LGET':
+                dataset.addVar(new Dataset.Variable(args[0], 'DINT', Dataset.Location.VarOut));
+                newExpr = args[0];
+                break;
             case 'STARTTIMER':
                 var timername = args[0].trim().replaceAll(' ','_');
                 dataset.addVar(new Dataset.Variable("ton"+timername, 'TON', Dataset.Location.Var));
