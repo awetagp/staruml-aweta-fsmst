@@ -7,14 +7,13 @@ const { ipcRenderer } = require("electron");
 // const filenamify = require("filenamify");
 // const ejs = require("ejs");
 const extract = require('./symbolextraction').extract;
+const codegenerator = require('./code-generator');
 
-
-function handleFsmGenerator(template_file, elements, output, splitfiles) {
+function handleFsmCodeGenerator(elements, output, splitfiles) {
     var error = false;
     const file_extensions = ['.typ', '.fun', '.st'];
     const file_count = splitfiles ? 3 : 1;
     if (output) {
-        console.log(template_file);
 
         try {
             for (let i = 0; i < elements.length; i++) {
@@ -22,35 +21,27 @@ function handleFsmGenerator(template_file, elements, output, splitfiles) {
                 const element = elements[i];
 
                 // if split generate for each file part an own render
-                for (let file_nr =0; file_nr < file_count; file_nr++) {
+                for (let file_nr = 0; file_nr < file_count; file_nr++) {
+                    const dataset = extract(element);
+                    var options = new codegenerator.StructuredTextGeneratorOptions();
                     const data = {
-                        app: app,
                         element: element,
-                        dataset: extract(element),
-                        render_type: file_count === 1 ? true: file_nr === 0,
-                        render_fun: file_count === 1 ? true: file_nr === 1,
-                        render_st: file_count === 1 ? true: file_nr === 2
                     };
+                    options.generateType = file_count === 1 ? true : file_nr === 0,
+                    options.generateVars = file_count === 1 ? true : file_nr === 1;
+                    options.generateST = file_count === 1 ? true : file_nr === 2;
+
                     if (file_count > 1) {
                         output_masker = output_masker.replace(/\.\w+$/, file_extensions[file_nr]);
                     }
 
                     const outputRendered = ejs.render(output_masker, data, { async: false });
                     console.log(outputRendered);
-                    var rendered = '';
-                    // ipcRenderer.send("console-log", `[StarUML] ${path.resolve(template_file)}`);
-                    ejs.renderFile(path.resolve(template_file), data, { async: false }, function (err, _rendered) {
-                        rendered = _rendered
+                    var rendered = '',
+                        basedir ='';
 
-                        if (err) {
-                            ipcRenderer.send("console-log", `[StarUML|FSM_ST] ejs err: ${err}`);
-                            console.error(err);
-                            error = true;
-                        }
-                        else {
-                            // ipcRenderer.send("console-log", `[StarUML] ejs done`);
-                        }
-                    });
+                    rendered = codegenerator.generate(element, basedir, dataset, options);
+
                     if (error == false) {
                         console.log(`gen done`);
                         fs.writeFileSync(outputRendered, rendered, { encoding: "utf-8" });
@@ -79,7 +70,6 @@ function handleFsmGenerator(template_file, elements, output, splitfiles) {
     }
     return error;
 }
-
 function handleFsmGenerate() {
     app.elementPickerDialog.showDialog('Select a base model to generate codes', null, type.UMLStateMachine).then(function ({
         buttonId,
@@ -95,7 +85,7 @@ function handleFsmGenerate() {
                     splitFiles = app.preferences.get('fsmst.gen.splitFiles');
                 //.\example_statemachine.mdj -t ./statemachine_fbst.ejs -s "@UMLStateMachine[name=StateMachine4]" -o "out/<%=element.name%>.st"
                 console.log(basedir);
-                error = handleFsmGenerator(template_file, [state_machine], output, splitFiles);
+                error = handleFsmCodeGenerator([state_machine], output, splitFiles);
                 if (error == false) {
                     if (app.preferences.get("fsmst.gen.showComplete")) {
                         app.dialogs.showInfoDialog(`Complete code generation for statemachine '${state_machine.name}'.`);
@@ -166,8 +156,9 @@ function handleFsmGenerateCli(message) {
             splitFiles = Boolean(Number(_args['m']));
         }
 
-        if (elements && elements.length>=1) {
-            error = handleFsmGenerator(templateFile, elements, output, splitFiles);
+
+        if (elements && elements.length >= 1) {
+            error = handleFsmCodeGenerator(elements, output, splitFiles);
             ipcRenderer.send("console-log", "Done it!");
         } else {
             ipcRenderer.send("console-log", "Invalid arguments!");
