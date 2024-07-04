@@ -90,7 +90,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             condition += `${me.getPrevStateVar(_region, false)} <> ${me.getInactiveState()}`;
         });
 
-        this.cw.writeLine(`IF ( ${condition} ) THEN`);
+        this.cw.writeLine(`IF ${condition} THEN`);
         this.cw.indent();
 
         // hmm is this really correct, what if neste multiple times?
@@ -127,7 +127,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             condition += `${me.getStateVar(_region, false)} = ${me.getInactiveState()}`;
         });
 
-        this.cw.writeLine(`IF ( ${condition} ) THEN`);
+        this.cw.writeLine(`IF ${condition} THEN`);
         this.cw.indent();
         this.cw.writeLine(`${me.getStateVar(FSMHelpers.getRegion(transition.target), false)} := ${me.getStateName(transition.target)};`);
         this.cw.writeLine(`${me.getStateVar(FSMHelpers.getRegion(state), false)} := ${me.getInactiveState()};`);
@@ -252,7 +252,7 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         // activities
         if (state.entryActivities && state.entryActivities.length > 0) {
-            this.cw.writeLine(`IF ( ${me.getStateVar(state)} <> ${me.getPrevStateVar(state)} ) THEN`);
+            this.cw.writeLine(`IF ${me.getStateVar(state)} <> ${me.getPrevStateVar(state)} THEN`);
             this.cw.indent();
             this.cw.writeLine('(* entryActivities: *)');
             state.entryActivities.forEach(me.writeLineWithSubstitution, this);
@@ -270,9 +270,9 @@ class StructuredTextGenerator  extends FSMHelpers {
             let transitionsPerTrigger = FSMHelpers.getTransitionsForTrigger(triggerName, transitions),
                 condStat = null;
             if (triggerName && tidx == 0) {
-                condStat=`IF (${me.getSubstitute(triggerName)}) THEN`;
+                condStat=`IF ${me.getSubstitute(triggerName)} THEN`;
             } else if (triggerName) {
-                condStat=`ELSIF (${me.getSubstitute(triggerName)}) THEN`;
+                condStat=`ELSIF ${me.getSubstitute(triggerName)} THEN`;
             } else if (usedTriggers.length >= 2) {
                 condStat='ELSE';
             }
@@ -291,14 +291,14 @@ class StructuredTextGenerator  extends FSMHelpers {
 
                 this.cw.writeLine(`(* ${transition._id} *)`);
                 if (guard && ttidx==0) {
-                    condTrans = `IF ( ${me.getSubstitute(guard)} ) THEN`
+                    condTrans = `IF ${me.getSubstitute(guard)} THEN`
                 } else if ( guard ) {
-                    condTrans = `ELSIF ( ${me.getSubstitute(guard)} ) THEN`
+                    condTrans = `ELSIF ${me.getSubstitute(guard)} THEN`
                 } else if (FSMHelpers.isFork(state)==false && transitionsPerTrigger.length>1) {
                     condTrans = 'ELSE'
                 }
                 else if (FSMHelpers.isCompositeState(state) && transition.triggers.length === 0 && guard == null) {
-                    condTrans = `IF ( ${me.getStateVar(state, false)} = ${me.getStateName(me.getFinalState(state))} ) THEN`
+                    condTrans = `IF ${me.getStateVar(state, false)} = ${me.getStateName(me.getFinalState(state))} THEN`
                 }
 
                 if (condTrans) {
@@ -368,7 +368,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             });
 
             this.cw.writeLine();
-            this.cw.writeLine(`IF ( ${condition} ) THEN`);
+            this.cw.writeLine(`IF ${condition} THEN`);
             this.cw.indent();
         }
 
@@ -527,7 +527,7 @@ class StructuredTextGenerator  extends FSMHelpers {
 
                 // add ResetStateMachine handler
                 this.cw.writeLine('rtResetStateMachine(CLK:=ResetStateMachine);');
-                this.cw.writeLine('IF (rtResetStateMachine.Q) THEN');
+                this.cw.writeLine('IF rtResetStateMachine.Q THEN');
                 this.cw.indent();
                 this.cw.writeLine(`eState := ${me.getStateName(me.getInitialState())};`);
                 this.cw.writeLine(`ePrevState := ${me.getInactiveState()};`);
