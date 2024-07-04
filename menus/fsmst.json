@@ -4,9 +4,20 @@
             "id": "tools",
             "submenu": [
                 {
-                    "label": "Generate FSM",
-                    "id": "tool.fsmgen",
-                    "command": "fsm_st:generate"
+                    "label": "FSM ST",
+                    "id": "tools.fsmst",
+                    "submenu": [
+                        {
+                            "label": "Generate ST",
+                            "id": "tool.fsmgen",
+                            "command": "fsm_st:generate"
+                        },
+                        {
+                            "label": "Validate Model",
+                            "id": "tool.fsmval",
+                            "command": "fsm_st:validate"
+                        }
+                    ]
                 }
             ]
         }

@@ -54,6 +54,10 @@ class FSMHelpers {
         return a_target instanceof type.UMLPseudostate && a_target.kind == "fork";
     }
 
+    static  isInitial(a_target) {
+        return a_target instanceof type.UMLPseudostate && a_target.kind == "initial";
+    }
+
     static  isJoin(a_target) {
         return a_target instanceof type.UMLPseudostate && a_target.kind == "join";
     }
@@ -155,7 +159,9 @@ class FSMHelpers {
 
         if( include_normal_states && context instanceof type.UMLStateMachine || context._parent instanceof type.UMLStateMachine) {
             _initial_state = this.getInitialState()
-            _states.push(_initial_state);
+            if (_initial_state) {
+                _states.push(_initial_state);
+            }
         }
 
         _regions.forEach(_aregion => {

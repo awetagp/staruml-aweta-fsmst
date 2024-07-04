@@ -4,10 +4,23 @@
 const path = require('path');
 const fs = require('fs');
 const { ipcRenderer } = require("electron");
-// const filenamify = require("filenamify");
-// const ejs = require("ejs");
 const extract = require('./symbolextraction').extract;
 const codegenerator = require('./code-generator');
+const modelvalidator = require('./model-validator');
+
+const templatePanel = fs.readFileSync(
+    path.join(__dirname, "model-validator-panel.html"),
+    "utf8"
+);
+
+const templateItem = fs.readFileSync(
+    path.join(__dirname, "model-validator-item.html"),
+    "utf8"
+);
+
+var fsmModelValidationPanel,
+    listView;
+var dataSource = new kendo.data.DataSource();
 
 function handleFsmCodeGenerator(elements, output, splitfiles) {
     var error = false;
@@ -71,34 +84,125 @@ function handleFsmCodeGenerator(elements, output, splitfiles) {
     return error;
 }
 function handleFsmGenerate() {
-    app.elementPickerDialog.showDialog('Select a base model to generate codes', null, type.UMLStateMachine).then(function ({
-        buttonId,
-        returnValue
-    }) {
-        if (buttonId === 'ok') {
-            if (returnValue instanceof type['UMLStateMachine']) {
-                var state_machine = returnValue,
-                    error;
-                basedir = path.dirname(app.project.filename),
-                    output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
-                    template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template")),
-                    splitFiles = app.preferences.get('fsmst.gen.splitFiles');
-                //.\example_statemachine.mdj -t ./statemachine_fbst.ejs -s "@UMLStateMachine[name=StateMachine4]" -o "out/<%=element.name%>.st"
-                console.log(basedir);
+    var diagram = app.diagrams.getCurrentDiagram(),
+        statemachine = null;
+
+        function _do_generate(sm) {
+            var state_machine = sm,
+                error;
+            basedir = path.dirname(app.project.filename),
+                output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
+                template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template")),
+                splitFiles = app.preferences.get('fsmst.gen.splitFiles');
+            //.\example_statemachine.mdj -t ./statemachine_fbst.ejs -s "@UMLStateMachine[name=StateMachine4]" -o "out/<%=element.name%>.st"
+            console.log(basedir);
+
+            var validationError = modelvalidator.validate(sm).length != 0;
+            if (validationError == false) {
                 error = handleFsmCodeGenerator([state_machine], output, splitFiles);
                 if (error == false) {
                     if (app.preferences.get("fsmst.gen.showComplete")) {
                         app.dialogs.showInfoDialog(`Complete code generation for statemachine '${state_machine.name}'.`);
                     }
-                }  else {
+                } else {
                     app.dialogs.showAlertDialog(`An fatal error occured during code generation for statemachine '${state_machine.name}'.`);
                 }
             } else {
-                app.dialogs.showInfoDialog('Please select a StateMachine!');
+                handleFsmModelValidate();
+                app.dialogs.showAlertDialog(`StateMachine model isn't valid, please check validation errors for statemachine '${state_machine.name}'.`);
             }
-        };
-    })
 
+        }
+
+    if (diagram instanceof type.UMLStatechartDiagram) {
+        _do_generate(diagram._parent);
+    }
+    else {
+        app.elementPickerDialog.showDialog('Select a statemachine model to generate code for', null, type.UMLStateMachine).then(function ({
+            buttonId,
+            returnValue
+        }) {
+            if (buttonId === 'ok') {
+                if (returnValue instanceof type['UMLStateMachine']) {
+                    _do_generate(returnValue);
+                } else {
+                    app.dialogs.showInfoDialog('Please select a StateMachine!');
+                }
+            };
+        });
+    }
+
+}
+
+
+
+function handleFsmModelValidate(message) {
+    var statemachine = null;
+    if (message)
+        statemachine= app.repository.select('@UMLStateMachine')[0];
+    else {
+        var diagram = app.diagrams.getCurrentDiagram();
+        if (diagram instanceof type.UMLStatechartDiagram) {
+            statemachine = diagram._parent;
+        }
+    }
+
+    function _do_validate(sm) {
+        var errors = modelvalidator.validate(sm);
+
+        if (message) {
+            errors.forEach(_error => {
+                var elem = _error.element,
+                    msg = _error.msg;
+
+                ipcRenderer.send("console-log", `[FSM Validation Error] [${elem.getClassName()}] ${elem.name||'-'} - ${msg}`);
+            });
+            if (errors.length > 0) {
+                ipcRenderer.send("console-log", `[FSM Validation] ${errors.length} errors found !`);
+            } else {
+                ipcRenderer.send("console-log", `[FSM Validation] No errors found !`);
+            }
+        }  else {
+            errors.forEach(_error => {
+                var elem = _error.element,
+                    msg = _error.msg;
+                dataSource.add({
+                    id: elem._id,
+                    icon: elem.getNodeIcon(),
+                    name: elem.name,
+                    type: elem.getClassName(),
+                    msg: msg
+                });
+            });
+        }
+
+        //ipcRenderer.send("console-log", `[FSM_ST|Error] ${err.toString()}`);
+        return errors.length > 0;
+    }
+    dataSource.data([]);
+
+    if (statemachine) {
+        _do_validate(statemachine);
+    }
+    else {
+        app.elementPickerDialog.showDialog('Select a statemachine model to validate', null, type.UMLStateMachine).then(function ({
+            buttonId,
+            returnValue
+        }) {
+            if (buttonId === 'ok') {
+                if (returnValue instanceof type['UMLStateMachine']) {
+                    _do_validate(returnValue);
+                } else {
+                    app.dialogs.showInfoDialog('Please select a StateMachine!');
+                }
+            };
+        });
+    }
+
+
+    if (!fsmModelValidationPanel.isVisible()) {
+        fsmModelValidationPanel.show();
+    }
 }
 
 function showUsage() {
@@ -167,9 +271,60 @@ function handleFsmGenerateCli(message) {
     }
 }
 
+function _handleSelectValidationErrorOnClick()
+{
+    var selectedItem = null;
+    console.log('clicked item');
+
+    if (listView.select().length > 0)
+     {
+            var data = dataSource.view();
+            selectedItems = $.map(listView.select(), function(item) {
+                    return data[$(item).index()];
+                });
+
+    }
+
+    if (selectedItems && selectedItems.length > 0)
+    {
+        var element = app.repository.get(selectedItems[0].id);
+
+        if (element) {
+            app.modelExplorer.select(element, true);
+            app.commands.execute('edit:select-in-diagram');
+        }
+    }
+}
+
 function init () {
-    app.commands.register('fsm_st:generate', handleFsmGenerate, 'FSM Generate')
-    app.commands.register('fsm_st:cligenerate', handleFsmGenerateCli)
+    $fsmModelValidationPanel = $(templatePanel);
+    $title = $fsmModelValidationPanel.find(".title");
+    $close = $fsmModelValidationPanel.find(".close");
+    $close.click(function () {
+        fsmModelValidationPanel.hide();
+    });
+    $refresh = $fsmModelValidationPanel.find("#fsm-model-validator-refresh");
+    $refresh.click(function (e) {
+        console.log('refresh items');
+        handleFsmModelValidate();
+    });
+    fsmModelValidationPanel = app.panelManager.createBottomPanel("?", $fsmModelValidationPanel, 60);
+
+    // Setup Removable Elements List
+    $listView = $fsmModelValidationPanel.find(".listview");
+    $listView.kendoListView({
+        dataSource: dataSource,
+        template: templateItem,
+        selectable: "multiple"
+    });
+    listView = $listView.data("kendoListView");
+    $listView.click(function (e) {
+        _handleSelectValidationErrorOnClick();
+    });
+
+    app.commands.register('fsm_st:generate', handleFsmGenerate, 'FSM Generate');
+    app.commands.register('fsm_st:cligenerate', handleFsmGenerateCli);
+    app.commands.register('fsm_st:validate', handleFsmModelValidate, 'FSM Validate');
 }
 
 
