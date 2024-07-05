@@ -5,9 +5,12 @@ const {FSMHelpers} = require('./code-helpers')
 const { Variable, Dataset } = require('./dataset')
 
 class StructuredTextGeneratorOptions {
+    target = 'st';
     generateType = false;
     generateVars = false;
     generateST = false;
+    cstyleComment = false;
+    haveEnum = true;
 }
 
 /**
@@ -32,6 +35,10 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         /** @member {Dataset} */
         this.dataset = dataset;
+
+        /** @member {StructuredTextGeneratorOptions} */
+        this.options = new StructuredTextGeneratorOptions();
+
     }
 
     /**
@@ -43,6 +50,10 @@ class StructuredTextGenerator  extends FSMHelpers {
     }
 
     toComment(comment) {
+        if (this.options.cstyleComment) {
+            return `// ${comment}`;
+
+        }
         return `(* ${comment} *)`;
     }
 
@@ -434,6 +445,12 @@ class StructuredTextGenerator  extends FSMHelpers {
             states = me.extractStates(this.baseModel, true, true, true),
             stateNames = me.getStateNames(states, false);
 
+        function getStatesType() {
+            if (me.options.haveEnum) {
+                return `E_${me.getStateMachineName()}_States`;
+            }
+            return 'INT';
+        }
         this.cw.writeLine('VAR_INPUT');
         this.cw.indent();
         this.cw.writeLine(`ResetStateMachine: BOOL := FALSE; ${this.toComment('Used for testing purposes')}`);
@@ -444,10 +461,10 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         this.cw.writeLine('VAR_OUTPUT');
         this.cw.indent();
-        this.cw.writeLine(`eState : E_${me.getStateMachineName()}_States := ${me.getStateName(me.getInitialState())};`);
+        this.cw.writeLine(`eState : ${getStatesType()} := ${me.getStateName(me.getInitialState())};`);
         compositeStates.forEach(state => {
             state.regions.forEach((region,idx_region) => {
-                this.cw.writeLine(`e${me.getRegionName(region, true)}State : E_${me.getStateMachineName()}_States := ${me.getInactiveState()};`);
+                this.cw.writeLine(`e${me.getRegionName(region, true)}State : ${getStatesType()} := ${me.getInactiveState()};`);
             });
         });
         me.getDatasetItem('var_out').forEach(me.addDatasetVar, me);
@@ -467,10 +484,10 @@ class StructuredTextGenerator  extends FSMHelpers {
         this.cw.writeLine('VAR');
         this.cw.indent();
         this.cw.writeLine('rtResetStateMachine: R_TRIG;');
-        this.cw.writeLine(`ePrevState : E_${me.getStateMachineName()}_States := ${me.getInactiveState()};`);
+        this.cw.writeLine(`ePrevState : ${getStatesType()} := ${me.getInactiveState()};`);
         compositeStates.forEach(state => {
             state.regions.forEach((region,idx_region) => {
-                this.cw.writeLine(`e${me.getRegionName(region, true)}PrevState : E_${me.getStateMachineName()}_States := ${me.getInactiveState()};`);
+                this.cw.writeLine(`e${me.getRegionName(region, true)}PrevState : ${getStatesType()} := ${me.getInactiveState()};`);
             });
         });
         me.getDatasetItem('var_private').forEach(me.addDatasetVar, me);
@@ -482,21 +499,28 @@ class StructuredTextGenerator  extends FSMHelpers {
         // adds an array with al the state names
         this.cw.writeLine('VAR CONSTANT');
         this.cw.indent();
-        this.cw.writeLine(`StateNames : ARRAY[0..${stateNames.length-1}] OF STRING := [`);
-        this.cw.indent();
-        stateNames.forEach(( stateName,idx,thearay) => {
-            let postfix=',';
-            if(idx === thearay.length-1) {
-                postfix='';
-            }
-            this.cw.writeLine(`'${stateName}'${postfix}`);
-        });
+        if (me.options.target != 'scl') {
+            this.cw.writeLine(`StateNames : ARRAY[0..${stateNames.length - 1}] OF STRING := [`);
+            this.cw.indent();
+            stateNames.forEach((stateName, idx, thearay) => {
+                let postfix = ',';
+                if (idx === thearay.length - 1) {
+                    postfix = '';
+                }
+                this.cw.writeLine(`'${stateName}'${postfix}`);
+            });
 
-        this.cw.outdent();
-        this.cw.writeLine('];');
+            this.cw.outdent();
+            this.cw.writeLine('];');
+        }
+        if (me.options.haveEnum == false) {
+            var names = me.getStateNames(states);
+            names.forEach((stateName, idx, thearay) => {
+                this.cw.writeLine(`${stateName}: INT := ${idx};`);
+            });
+        }
         this.cw.outdent();
         this.cw.writeLine('END_VAR');
-
     }
 
     /**
@@ -505,6 +529,14 @@ class StructuredTextGenerator  extends FSMHelpers {
      */
     generate(options) {
         var me = this;
+        me.options = options;
+
+        console.log('target = ' + me.options.target);
+        if (me.options.target == 'scl') {
+            me.options.cstyleComment = true;
+            me.options.haveEnum = false;
+            me.options.generateType = false;
+        }
 
         this.cw = new codegen.CodeWriter();
         if (this.baseModel instanceof type.UMLStateMachine) {
@@ -514,22 +546,22 @@ class StructuredTextGenerator  extends FSMHelpers {
             // Each Composite State is also threated as a StateMachine
             stateMachines.push(...compositeStates);
 
-            if (options.generateType) {
+            if (me.options.generateType) {
                 me.addTypeBlock();
                 this.cw.writeLine();
             }
 
-            if (options.generateVars || options.generateST) {
+            if (me.options.generateVars || me.options.generateST) {
                 var comment = this.baseModel.documentation ? ` ${this.toComment(this.baseModel.documentation)}` : '';
                 this.cw.writeLine(`FUNCTION_BLOCK FB_${me.getStateMachineName()}${comment}`);
                 this.cw.indent();
             }
 
-            if (options.generateVars) {
+            if (me.options.generateVars) {
                 me.addVars();
             }
 
-            if (options.generateST) {
+            if (me.options.generateST) {
                 var comment = this.baseModel.documentation ? ` ${this.toComment(this.baseModel.documentation)}` : '';
                 this.cw.writeLine();
 

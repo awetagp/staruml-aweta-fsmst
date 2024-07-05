@@ -22,10 +22,10 @@ var fsmModelValidationPanel,
     listView;
 var dataSource = new kendo.data.DataSource();
 
-function handleFsmCodeGenerator(elements, output, splitfiles) {
+function handleFsmCodeGenerator(elements, output, target) {
     var error = false;
     const file_extensions = ['.typ', '.fun', '.st'];
-    const file_count = splitfiles ? 3 : 1;
+    const file_count = target=='brst' ? 3 : 1;
     if (output) {
 
         try {
@@ -40,12 +40,16 @@ function handleFsmCodeGenerator(elements, output, splitfiles) {
                     const data = {
                         element: element,
                     };
+                    options.target = target;
                     options.generateType = file_count === 1 ? true : file_nr === 0,
                     options.generateVars = file_count === 1 ? true : file_nr === 1;
                     options.generateST = file_count === 1 ? true : file_nr === 2;
 
                     if (file_count > 1) {
                         output_masker = output_masker.replace(/\.\w+$/, file_extensions[file_nr]);
+                    }
+                    else if (target == 'scl') {
+                        output_masker = output_masker.replace(/\.\w+$/, '.scl');
                     }
 
                     const outputRendered = ejs.render(output_masker, data, { async: false });
@@ -92,14 +96,13 @@ function handleFsmGenerate() {
                 error;
             basedir = path.dirname(app.project.filename),
                 output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
-                template_file = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template")),
-                splitFiles = app.preferences.get('fsmst.gen.splitFiles');
+                target = app.preferences.get('fsmst.gen.target');
             //.\example_statemachine.mdj -t ./statemachine_fbst.ejs -s "@UMLStateMachine[name=StateMachine4]" -o "out/<%=element.name%>.st"
             console.log(basedir);
 
             var validationError = modelvalidator.validate(sm).length != 0;
             if (validationError == false) {
-                error = handleFsmCodeGenerator([state_machine], output, splitFiles);
+                error = handleFsmCodeGenerator([state_machine], output, target);
                 if (error == false) {
                     if (app.preferences.get("fsmst.gen.showComplete")) {
                         app.dialogs.showInfoDialog(`Complete code generation for statemachine '${state_machine.name}'.`);
@@ -207,8 +210,8 @@ function handleFsmModelValidate(message) {
 
 function showUsage() {
     ipcRenderer.send("console-log", "staruml exec -a help");
-    ipcRenderer.send("console-log", "staruml exec -a \"s=@UMLStateMachine[name=StateMachine1]\" [-a m=1] [-a \"o=out/<%=element.name%>.st\"] <projectfile.mdj> -c fsm_st:cligenerate");
-    ipcRenderer.send("console-log", "s = element selector(should be statemachines)\nm = generate multiple files(type, fun ,and st) per statemachine\no = outputfile location and naming");
+    ipcRenderer.send("console-log", "staruml exec -a \"s=@UMLStateMachine[name=StateMachine1]\" -a t=st [-a \"o=out/<%=element.name%>.st\"] <projectfile.mdj> -c fsm_st:cligenerate");
+    ipcRenderer.send("console-log", "s = element selector(should be statemachines)\nt = target st|brst|scl\no = outputfile location and naming");
 }
 
 function handleFsmGenerateCli(message) {
@@ -216,8 +219,7 @@ function handleFsmGenerateCli(message) {
         var _args = {},
             basedir = path.dirname(app.project.filename),
             output = output = path.resolve(path.join(basedir, app.preferences.get('fsmst.gen.outputFormat'))),
-            splitFiles = true,
-            templateFile = path.join(__dirname, 'resources', app.preferences.get("fsmst.gen.template")),
+            target = app.preferences.get('fsmst.gen.target'),
             elements,
             showTheUsage = false;
 
@@ -245,7 +247,7 @@ function handleFsmGenerateCli(message) {
         // ipcRenderer.send("console-log", _args);
 
         if ('t' in _args) {
-            templateFile = _args['t'];
+            target = _args['t'];
         }
         if ('s' in _args) {
             elements = app.repository.select(_args['s']);
@@ -256,13 +258,9 @@ function handleFsmGenerateCli(message) {
         if ('o' in _args) {
             output = _args['o'];
         }
-        if ('m' in _args) {
-            splitFiles = Boolean(Number(_args['m']));
-        }
-
 
         if (elements && elements.length >= 1) {
-            error = handleFsmCodeGenerator(elements, output, splitFiles);
+            error = handleFsmCodeGenerator(elements, output, target);
             ipcRenderer.send("console-log", "Done it!");
         } else {
             ipcRenderer.send("console-log", "Invalid arguments!");
@@ -274,8 +272,6 @@ function handleFsmGenerateCli(message) {
 function _handleSelectValidationErrorOnClick()
 {
     var selectedItem = null;
-    console.log('clicked item');
-
     if (listView.select().length > 0)
      {
             var data = dataSource.view();

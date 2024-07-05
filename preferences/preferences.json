@@ -6,15 +6,30 @@
             "text": "Finite Statemachine ST generator",
             "type": "section"
         },
+        "fsmst.gen.target": {
+            "text": "Target",
+            "description": "For which platform it should be generated",
+            "type": "dropdown",
+            "width": 450,
+            "default": "st",
+            "options": [
+                {
+                    "value": "st",
+                    "text": "Generic ST"
+                },
+                {
+                    "value": "brst",
+                    "text": "B&R ST"
+                },
+                {
+                    "value": "scl",
+                    "text": "Siemens SCL"
+                }
+            ]
+        },
         "fsmst.gen.showComplete": {
             "text": "Show complete",
             "description": "Show dialog after code generation.",
-            "type": "check",
-            "default": true
-        },
-        "fsmst.gen.splitFiles": {
-            "text": "Split structured text",
-            "description": "Split generated structured text into 3 files; .type, .fun and .st.",
             "type": "check",
             "default": true
         },
@@ -24,13 +39,6 @@
             "type": "string",
             "width": 450,
             "default": "out/<%=element.name%>.st"
-        },
-        "fsmst.gen.template": {
-            "text": "Template",
-            "description": "EJS template file for FSM generation",
-            "type": "string",
-            "width": 450,
-            "default": "statemachine_fbst.ejs"
         }
     }
 }
