@@ -9,6 +9,7 @@ Supported functions:
 * IsReset( _name_ )
 * Put( _name_, _value_ )
 * Get( _name_ )
+* LGet( _name_ )
 * Test( _name_ )
 * StartTimer( _name_, _timeout_ )
 * CancelTimer( _name_ )
