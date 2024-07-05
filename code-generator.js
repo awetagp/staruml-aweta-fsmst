@@ -42,6 +42,14 @@ class StructuredTextGenerator  extends FSMHelpers {
         this.cw.writeLine(`${this.getSubstitute(line.name)};`);
     }
 
+    toComment(comment) {
+        return `(* ${comment} *)`;
+    }
+
+    writeComment(comment) {
+        this.cw.writeLine(this.toComment(comment));
+    }
+
     /**
      * Return a lookup table by name from a DataSet
      * @param {string} itemName
@@ -203,25 +211,25 @@ class StructuredTextGenerator  extends FSMHelpers {
             effects = FSMHelpers.extractActivities(state, transition);
 
         if (isInternalSelfTransition == false && state.exitActivities && state.exitActivities.length > 0) {
-            this.cw.writeLine('(* exitActivities: *)');
+            this.writeComment('exitActivities:');
             state.exitActivities.forEach(me.writeLineWithSubstitution, this);
         }
 
         if (effects.length > 0) {
-            this.cw.writeLine('(* effects stuff *)');
+            this.writeComment('effects stuff');
             effects.forEach(me.writeLineWithSubstitution, this);
         }
 
         // An 'external' self transtion with retrigger entries
         if (state._id == transition.target._id && isInternalSelfTransition == false) {
-            this.cw.writeLine(`${me.getPrevStateVar(state)} := ${me.getInactiveState()}; (* retrigger entry activities *)`);
+            this.cw.writeLine(`${me.getPrevStateVar(state)} := ${me.getInactiveState()}; ${this.toComment('retrigger entry activities')}`);
         }
 
         if (FSMHelpers.isRestoreHistory(transition.target)) {
-            this.cw.writeLine('(* restore history *)');
+            this.writeComment('restore history');
             me.handleTransitionHistoryRestore(state, transition);
         } else if (FSMHelpers.isJoin(transition.target)) {
-            this.cw.writeLine('(* Join substatemachines *)');
+            this.writeComment('Join substatemachines');
             me.handleTransitionJoin(state, transition);
         } else if (FSMHelpers.isCompositeState(state) == false || FSMHelpers.isInternalSelfTransition(transition) == false || state._id != transition.source._id) {
             // regular transition
@@ -245,7 +253,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             usedTriggers = FSMHelpers.getUsedTriggers(transitions);
 
         if (FSMHelpers.isSubState(state)) {
-            this.cw.writeLine(`(* Substate ${me.getStateName(FSMHelpers.getParent(state))}.${stateName} *)`);
+            this.writeComment(`Substate ${me.getStateName(FSMHelpers.getParent(state))}.${stateName}`);
         }
         this.cw.writeLine(`${stateName}:`);
         this.cw.indent();
@@ -254,7 +262,7 @@ class StructuredTextGenerator  extends FSMHelpers {
         if (state.entryActivities && state.entryActivities.length > 0) {
             this.cw.writeLine(`IF ${me.getStateVar(state)} <> ${me.getPrevStateVar(state)} THEN`);
             this.cw.indent();
-            this.cw.writeLine('(* entryActivities: *)');
+            this.writeComment('entryActivities:');
             state.entryActivities.forEach(me.writeLineWithSubstitution, this);
             this.cw.outdent();
             this.cw.writeLine('END_IF;');
@@ -289,7 +297,7 @@ class StructuredTextGenerator  extends FSMHelpers {
                 let guard = transition.guard || null,
                     condTrans = null;
 
-                this.cw.writeLine(`(* ${transition._id} *)`);
+                this.writeComment(`${transition._id}`);
                 if (guard && ttidx==0) {
                     condTrans = `IF ${me.getSubstitute(guard)} THEN`
                 } else if ( guard ) {
@@ -413,7 +421,7 @@ class StructuredTextGenerator  extends FSMHelpers {
      * @param {Variable} variable
      */
     addDatasetVar(variable) {
-        let comment = variable.comment!= '' ? ` (* ${variable.comment} *)`: '';
+        let comment = variable.comment!= '' ? ` ${this.toComment(variable.comment)}`: '';
         this.cw.writeLine(`${variable.name} : ${variable.datatype};${comment}`);
     }
 
@@ -428,7 +436,7 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         this.cw.writeLine('VAR_INPUT');
         this.cw.indent();
-        this.cw.writeLine('ResetStateMachine: BOOL := FALSE; (* Used for testing purposes*)');
+        this.cw.writeLine(`ResetStateMachine: BOOL := FALSE; ${this.toComment('Used for testing purposes')}`);
         me.getDatasetItem('var_in').forEach(me.addDatasetVar, me);
         this.cw.outdent();
         this.cw.writeLine('END_VAR');
@@ -512,7 +520,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             }
 
             if (options.generateVars || options.generateST) {
-                var comment = this.baseModel.documentation ? ` (* ${this.baseModel.documentation} *)` : '';
+                var comment = this.baseModel.documentation ? ` ${this.toComment(this.baseModel.documentation)}` : '';
                 this.cw.writeLine(`FUNCTION_BLOCK FB_${me.getStateMachineName()}${comment}`);
                 this.cw.indent();
             }
@@ -522,7 +530,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             }
 
             if (options.generateST) {
-                var comment = this.baseModel.documentation ? ` (* ${this.baseModel.documentation} *)` : '';
+                var comment = this.baseModel.documentation ? ` ${this.toComment(this.baseModel.documentation)}` : '';
                 this.cw.writeLine();
 
                 // add ResetStateMachine handler
