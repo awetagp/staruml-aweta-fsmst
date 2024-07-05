@@ -1,3 +1,4 @@
 {
-    "cmdctrl-w": "fsm_st:generate"
+    "cmdctrl-w": "fsm_st:generate",
+    "cmdctrl-shift-v": "fsm_st:validate"
 }
