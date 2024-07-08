@@ -126,9 +126,9 @@ class FSMHelpers {
         if (state.name) {
             _state_name += state.name.replaceAll(' ','_');
         } else if (state instanceof type.UMLPseudostate && state.kind == 'initial') {
-            _state_name += 'Init';
+            _state_name += 'Init_'+state._id.substr(-4,3);
         } else if (state instanceof type.UMLFinalState ) {
-            _state_name += 'Final';
+            _state_name += 'Final_'+state._id.substr(-4,3);
         } else if (FSMHelpers.isJoin(state)) {
             _state_name += 'Join_'+state._id.substr(-4,3);
         } else if (FSMHelpers.isFork(state)) {
