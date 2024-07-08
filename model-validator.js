@@ -44,14 +44,14 @@ class ModelValidator extends FSMHelpers {
             }
             if (state.exitActivities && state.exitActivities.length > 0) {
                 state.exitActivities.forEach(activity => {
-                    if (! (activity instanceof type.UMLActivity)) {
+                    if (! (activity instanceof type.UMLActivity || activity instanceof type.UMLOpaqueBehavior)) {
                         this.errors.push({ 'element': activity, 'msg': `Only Activities are supported as exit activity.` });
                     }
                 });
             }
             if (state.entryActivities && state.entryActivities.length > 0) {
                 state.entryActivities.forEach(activity => {
-                    if (!(activity instanceof type.UMLActivity)) {
+                    if (!(activity instanceof type.UMLActivity || activity instanceof type.UMLOpaqueBehavior)) {
                         this.errors.push({ 'element': activity, 'msg': `Only Activities are supported as entry activity.` });
                     }
                 });
@@ -150,15 +150,11 @@ class ModelValidator extends FSMHelpers {
                 this.errors.push({ 'element': t, 'msg': 'Composite state has no initial sub state. Transition kind \'external\' isn\'t allowed.' });
             }
 
-            // if (t.efffects && t.effects.length >0 ) {
-                t.effects.forEach(effect => {
-                    if (! (effect instanceof type.UMLActivity)) {
-                        this.errors.push({ 'element': effect, 'msg': `Only Activities are supported as effects.` });
-                    }
-                });
-            // }
-
-
+            t.effects.forEach(effect => {
+                if (! (effect instanceof type.UMLActivity || effect instanceof type.UMLOpaqueBehavior)) {
+                    this.errors.push({ 'element': effect, 'msg': `Only Activities are supported as effects.` });
+                }
+            });
 
         });
     }
