@@ -226,10 +226,10 @@ function handleFsmGenerate(message) {
  * @returns
  */
 function _do_validate(sm, cli) {
+    ipcRenderer.send("console-log", `[FSM Validation] Validating statemachine '${sm.name}'`);
     var errors = modelvalidator.validate(sm);
 
     if (cli) {
-        ipcRenderer.send("console-log", `[FSM Validation] Validating statemachine '${sm.name}'`);
         errors.forEach(_error => {
             var elem = _error.element,
                 msg = _error.msg;
@@ -293,6 +293,11 @@ function handleFsmModelValidate(message) {
     if (!fsmModelValidationPanel.isVisible()) {
         fsmModelValidationPanel.show();
     }
+}
+
+function handleFsmModelValidateAll(message) {
+    var args = parseArgs(message);
+    // handleFsmModelValidate(ar)
 }
 
 function showUsage() {
@@ -364,6 +369,7 @@ function init () {
 
     app.commands.register('fsm_st:generate', handleFsmGenerate, 'FSM Generate');
     app.commands.register('fsm_st:validate', handleFsmModelValidate, 'FSM Validate');
+    app.commands.register('fsm_st:validateall', handleFsmModelValidateAll, 'FSM Validate All');
 }
 
 
