@@ -110,9 +110,14 @@ class ModelValidator extends FSMHelpers {
                 ts.push(t);
             }
 
-            if (t.triggers.length >= 2) {
+
+            if (FSMHelpers.isInitial(t.source) && (t.guard || t.triggers.length > 0)) {
+                this.errors.push({ 'element': t, 'msg': 'Initial states can\'t have transitions with triggers or guards.' });
+            }
+            else if (t.triggers.length >= 2) {
                 this.errors.push({ 'element': t, 'msg': 'Only 1 trigger allowed per transition.' });
             }
+
 
             if (FSMHelpers.isFork(t.source) && (t.guard || t.triggers.length > 0)) {
                 this.errors.push({ 'element': t, 'msg': 'Forks can\'t have outgoing transitions with triggers or guards.' });
