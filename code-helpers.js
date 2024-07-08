@@ -117,6 +117,17 @@ class FSMHelpers {
         return this.getStateVar(context, fromParent, 'PrevState');
     }
 
+    static _getNameBasedOnId(_id) {
+        var _sub = '';
+
+        for (let idx = _id.length-4; idx < _id.length; idx++) {
+            if (_id[idx].match(/[a-zA-Z0-9_-]/i)) {
+                _sub += _id[idx];
+            }
+        };
+        return _sub;
+    }
+
     getStateName(state, addPrefix=true) {
         // return 'escaped' version of the state name
         var _state_name='';
@@ -126,15 +137,15 @@ class FSMHelpers {
         if (state.name) {
             _state_name += state.name.replaceAll(' ','_');
         } else if (state instanceof type.UMLPseudostate && state.kind == 'initial') {
-            _state_name += 'Init_'+state._id.substr(-4,3);
+            _state_name += 'Init_'+FSMHelpers._getNameBasedOnId(state._id);
         } else if (state instanceof type.UMLFinalState ) {
-            _state_name += 'Final_'+state._id.substr(-4,3);
+            _state_name += 'Final_'+FSMHelpers._getNameBasedOnId(state._id);
         } else if (FSMHelpers.isJoin(state)) {
-            _state_name += 'Join_'+state._id.substr(-4,3);
+            _state_name += 'Join_'+FSMHelpers._getNameBasedOnId(state._id);
         } else if (FSMHelpers.isFork(state)) {
-            _state_name += 'Fork_' + state._id.substr(-4, 3);
+            _state_name += 'Fork_'+FSMHelpers._getNameBasedOnId(state._id);
         }  else if (FSMHelpers.isChoice(state)) {
-            _state_name += 'Choice_'+state._id.substr(-4,3);
+            _state_name += 'Choice_'+FSMHelpers._getNameBasedOnId(state._id);
         }
 
         return _state_name;
@@ -252,24 +263,28 @@ class FSMHelpers {
     }
 
     static sortTransitions(transitions) {
-
+        /* negative a becomes before b
+           positive a becomes after b
+           0 a is equal to b
+           */
         function compareTransitions(a,b) {
-            var trigger_a = (a.triggers && a.triggers.length) >=1 ? true : false,
-                trigger_b = (a.triggers && a.triggers.length) >=1 ? true : false,
+            var trigger_a = a.triggers.length >= 1 ? true : false,
+                trigger_b = b.triggers.length >= 1 ? true : false,
                 guard_a = a.guard ? true : false,
                 guard_b = b.guard ? true : false,
                 self_a = a.source._id == a.target._id, //TODO: have to take composed into account
-                self_b = b.source._id == b.target._id,
-                intial_a = a.source instanceof type.UMLPseudostate && a.source.kind == 'initial',
-                intial_b = b.source instanceof type.UMLPseudostate && b.source.kind == 'initial';
+                self_b = b.source._id == b.target._id;
+                // intial_a = a.source instanceof type.UMLPseudostate && a.source.kind == 'initial',
+                // intial_b = b.source instanceof type.UMLPseudostate && b.source.kind == 'initial';
 
-            if(intial_a && !intial_b) {
-                return -1;
-            }
-            else if(!intial_a && intial_b) {
-                return 1;
-            }
-            else {
+            // if(intial_a && !intial_b) {
+            //     return -1;
+            // }
+            // else if(!intial_a && intial_b) {
+            //     return 1;
+            // }
+            // }
+            // else {
                 if(self_a && !self_b) {
                     return 1;
                 }else if(!self_a && self_b) {
@@ -294,7 +309,7 @@ class FSMHelpers {
                         return 0;
                     }
                 }
-            }
+            // }
         };
 
         return transitions.sort(compareTransitions);
@@ -388,6 +403,7 @@ class FSMHelpers {
                 transitions_with_trigger.push(transition);
             }
         });
+        //transitions_with_trigger = FSMHelpers.sortTransitions(transitions_with_trigger);
         return transitions_with_trigger;
     }
 
