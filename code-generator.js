@@ -9,8 +9,9 @@ class StructuredTextGeneratorOptions {
     generateType = false;
     generateVars = false;
     generateST = false;
-    cstyleComment = false;
-    haveEnum = true;
+    cstyleComment = false; // when false use (* *) for comment
+    haveEnum = true; // platform support enums
+    enumValuePrefix = false; // add enum type in front of enumvalue (scoped)
 }
 
 /**
@@ -86,7 +87,11 @@ class StructuredTextGenerator  extends FSMHelpers {
     }
 
     getInactiveState() {
-        return `${this.getScopePrefix()}_InActive`;
+        var prefix = '';
+        if (this.options.enumValuePrefix) {
+            prefix = `${this.getEnumType()}.`;
+        }
+        return `${prefix}${this.getScopePrefix()}_InActive`;
     }
 
     // ---------------------------------------------------------------------------------------------------
@@ -113,7 +118,7 @@ class StructuredTextGenerator  extends FSMHelpers {
         this.cw.indent();
 
         // hmm is this really correct, what if neste multiple times?
-        this.cw.writeLine(`${me.getStateVar(state)} := ${me.getStateName(transition.target._parent._parent)};`);
+        this.cw.writeLine(`${me.getStateVar(state)} := ${me.getStateName(transition.target._parent._parent,true, me.options.enumValuePrefix)};`);
 
         // get all  (sub)statemachines that should be restored
         var _smsToRestore=me.getStatesBetween(state,transition.target);
@@ -148,7 +153,7 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         this.cw.writeLine(`IF ${condition} THEN`);
         this.cw.indent();
-        this.cw.writeLine(`${me.getStateVar(FSMHelpers.getRegion(transition.target), false)} := ${me.getStateName(transition.target)};`);
+        this.cw.writeLine(`${me.getStateVar(FSMHelpers.getRegion(transition.target), false)} := ${me.getStateName(transition.target,true, me.options.enumValuePrefix)};`);
         this.cw.writeLine(`${me.getStateVar(FSMHelpers.getRegion(state), false)} := ${me.getInactiveState()};`);
         this.cw.outdent();
         this.cw.writeLine('ELSE');
@@ -176,16 +181,16 @@ class StructuredTextGenerator  extends FSMHelpers {
         if (FSMHelpers.isInnerStateOf(state, transition.target)) {
             var states_up = FSMHelpers.getCompositeStatesBetween(state, transition.target);
             states_up.forEach(_state_ => {
-                this.cw.writeLine(`${me.getStateVar(_state_)} := ${me.getStateName(_state_)};`);
+                this.cw.writeLine(`${me.getStateVar(_state_)} := ${me.getStateName(_state_, true, me.options.enumValuePrefix)};`);
             });
         }
 
         // this is the main new state transfer
-        this.cw.writeLine(`${me.getStateVar(transition.target)} := ${me.getStateName(transition.target)};`);
+        this.cw.writeLine(`${me.getStateVar(transition.target)} := ${me.getStateName(transition.target, true, me.options.enumValuePrefix)};`);
 
         if (FSMHelpers.isCompositeState(transition.target)) {
             if (this.getInitialState(transition.target) !== null) {
-                this.cw.writeLine(`${me.getStateVar(transition.target, false)} := ${me.getStateName(this.getInitialState(transition.target))};`);
+                this.cw.writeLine(`${me.getStateVar(transition.target, false)} := ${me.getStateName(this.getInitialState(transition.target), true, me.options.enumValuePrefix)};`);
             }
             if (FSMHelpers.haveSameParent(state, transition.target) === false) {
                 this.cw.writeLine(`${me.getPrevStateVar(transition.target, false)} := ${me.getInactiveState()};`);
@@ -259,7 +264,7 @@ class StructuredTextGenerator  extends FSMHelpers {
      */
     handleState(state) {
         var me = this,
-            stateName = me.getStateName(state),
+            stateName = me.getStateName(state, true, me.options.enumValuePrefix),
             transitions = FSMHelpers.extractTransitions(this.baseModel, state),
             usedTriggers = FSMHelpers.getUsedTriggers(transitions);
 
@@ -409,7 +414,7 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         this.cw.writeLine('TYPE');
         this.cw.indent();
-        this.cw.writeLine(`E_${me.getStateMachineName()}_States : (`);
+        this.cw.writeLine(`${me.getEnumType()} : (`);
         this.cw.indent();
         names.forEach((stateName, idx, thearay) => {
             let postfix = ',';
@@ -447,7 +452,7 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         function getStatesType() {
             if (me.options.haveEnum) {
-                return `E_${me.getStateMachineName()}_States`;
+                return me.getEnumType();
             }
             return 'INT';
         }
@@ -461,7 +466,7 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         this.cw.writeLine('VAR_OUTPUT');
         this.cw.indent();
-        this.cw.writeLine(`eState : ${getStatesType()} := ${me.getStateName(me.getInitialState())};`);
+        this.cw.writeLine(`eState : ${getStatesType()} := ${me.getStateName(me.getInitialState(), true, me.options.enumValuePrefix)};`);
         compositeStates.forEach(state => {
             state.regions.forEach((region,idx_region) => {
                 this.cw.writeLine(`e${me.getRegionName(region, true)}State : ${getStatesType()} := ${me.getInactiveState()};`);
@@ -536,7 +541,11 @@ class StructuredTextGenerator  extends FSMHelpers {
             me.options.cstyleComment = true;
             me.options.haveEnum = false;
             me.options.generateType = false;
+        } else if (me.options.target == 'plcopen') {
+            me.options.enumValuePrefix = true;
         }
+
+        FSMHelpers.scopeEnumValueWithType = me.options.enumValuePrefix;
 
         this.cw = new codegen.CodeWriter();
         if (this.baseModel instanceof type.UMLStateMachine) {

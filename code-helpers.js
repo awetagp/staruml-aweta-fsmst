@@ -1,5 +1,8 @@
 
 class FSMHelpers {
+
+    scopeEnumValueWithType = false;
+
     /**
      * @constructor
      *
@@ -128,11 +131,19 @@ class FSMHelpers {
         return _sub;
     }
 
-    getStateName(state, addPrefix=true) {
+    getEnumType() {
+        return `E_${this.getStateMachineName()}_States`
+    }
+
+    getStateName(state, addPrefix=true, addType=false) {
         // return 'escaped' version of the state name
-        var _state_name='';
+        var me = this,
+            _state_name = '';
+        if (addType) {
+            _state_name += me.getEnumType()+".";
+        }
         if(addPrefix) {
-            _state_name= this.getScopePrefix()+'_';
+            _state_name+= this.getScopePrefix()+'_';
         }
         if (state.name) {
             _state_name += state.name.replaceAll(' ','_');
