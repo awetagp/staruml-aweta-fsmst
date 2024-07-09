@@ -2,7 +2,8 @@ const Location = {
 	Var: Symbol("Var"),
 	VarIn: Symbol("VarIn"),
 	VarOut: Symbol("VarOut"),
-	VarInOut: Symbol("VarInOut")
+    VarInOut: Symbol("VarInOut"),
+    VarConst: Symbol("VarConst")
 }
 
 class Variable {
@@ -10,11 +11,13 @@ class Variable {
     datatype;
     location;
     comment = '';
-    constructor(name, datatype, location, comment= '') {
+    defaultValue = null;
+    constructor(name, datatype, location, comment= '', defaultValue=null) {
         this.name = name;
         this.datatype = datatype;
         this.location = location;
         this.comment = comment;
+        this.defaultValue = defaultValue;
     }
 
     isEqual(a_var) {
@@ -65,8 +68,8 @@ class Dataset {
 
     merge(otherset) {
         otherset.body_pre.forEach( item => { this.addBody(item) });
-        for(const [from, to] of Object.entries(otherset.replacements)) { 
-            if (to != '') this.addReplacement(from, to) 
+        for(const [from, to] of Object.entries(otherset.replacements)) {
+            if (to != '') this.addReplacement(from, to)
         }
 
         otherset.var_private.forEach( item => { this.addVar( item )});
