@@ -12,7 +12,7 @@ class CodeWriterST extends codegen.CodeWriter{
     }
 
     toComment(comment) {
-        var _comment = comment ? `(* ${comment} *)` : '';
+        var _comment = comment ? ` (* ${comment} *)` : '';
         // if (this.options.cstyleComment) {
         //     return `// ${comment}`;
 
@@ -22,7 +22,7 @@ class CodeWriterST extends codegen.CodeWriter{
 
     writeComment(comment) {
         if (comment) {
-            this.writeLine(this.toComment(comment));
+            this.writeLine(this.toComment(comment).trim());
         }
     }
 
@@ -135,8 +135,7 @@ class CodeWriterST extends codegen.CodeWriter{
             me.writeLine(VARLUT[symbolKind]);
             me.indent();
             variables.forEach(variable => {
-                let comment = variable.comment != '' ? ` ${me.toComment(variable.comment)}` : '',
-                    defaultValue = variable.defaultValue ? ` := ${variable.defaultValue}` : '';
+                let defaultValue = variable.defaultValue ? ` := ${variable.defaultValue}` : '';
                 if (Array.isArray(variable.defaultValue)) {
                     me.writeLine(`${variable.name} : ${variable.datatype} := [`);
                     me.indent()
@@ -150,7 +149,7 @@ class CodeWriterST extends codegen.CodeWriter{
                     me.outdent()
                     me.writeLine(`];`);
                 }  else {
-                    me.writeLine(`${variable.name} : ${variable.datatype}${defaultValue};${comment}`);
+                    me.writeLine(`${variable.name} : ${variable.datatype}${defaultValue};${me.toComment(variable.comment)}`);
                 }
             });
             me.outdent();
