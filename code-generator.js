@@ -3,6 +3,7 @@ const fs = require('fs');
 // const { v4: uuidv4 } = require('uuid')
 const { FSMHelpers } = require('./code-helpers');
 const { CodeWriterST } = require('./code-writer-st');
+const { CodeWriterPython } = require('./code-writer-python');
 const { Variable, Dataset, Location } = require('./dataset');
 
 class StructuredTextGeneratorOptions {
@@ -314,7 +315,7 @@ class StructuredTextGenerator  extends FSMHelpers {
                 }
                 else if (FSMHelpers.isCompositeState(state) && transition.triggers.length === 0 && guard == null) {
                     condTrans = true;
-                    this.cw.writeIfBegin(`${me.getStateVar(state, false)} = ${me.getStateName(me.getFinalState(state))}`);
+                    this.cw.writeIfBegin(`${me.getStateVar(state, false)} = ${me.getStateName(me.getFinalState(state), true,  me.options.enumValuePrefix )}`);
                 }
                 else {
                     this.cw.writeComment(transition._id);
@@ -374,7 +375,7 @@ class StructuredTextGenerator  extends FSMHelpers {
                 if (_idx != 0) {
                     condition += ' AND ';
                 }
-                condition += `${me.getStateVar(_sm, true)} = ${me.getStateName(_sm)} AND ${me.getStateVar(_sm, true)} = ${me.getPrevStateVar(_sm)}`;
+                condition += `${me.getStateVar(_sm, true)} = ${me.getStateName(_sm, true, me.options.enumValuePrefix)} AND ${me.getStateVar(_sm, true)} = ${me.getPrevStateVar(_sm)}`;
             });
 
             this.cw.writeLine();
@@ -434,7 +435,6 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         this.cw.writeVariables(Location.VarInOut, me.getDatasetItem('var_inout'));
 
-
         let vars = [];
         vars.push(new Variable('rtResetStateMachine', 'R_TRIG', Symbol.VAR, '', null ));
         vars.push(new Variable('ePrevState', getStatesType(), Symbol.VAR, '', me.getInactiveState() ));
@@ -477,11 +477,18 @@ class StructuredTextGenerator  extends FSMHelpers {
             me.options.generateType = false;
         } else if (me.options.target == 'plcopen') {
             me.options.enumValuePrefix = true;
+        } else if (me.options.target == 'py') {
+            me.options.enumValuePrefix = true;
         }
+
 
         FSMHelpers.scopeEnumValueWithType = me.options.enumValuePrefix;
 
-        this.cw = new CodeWriterST();
+        if (me.options.target != 'py') {
+            this.cw = new CodeWriterST();
+        } else {
+            this.cw = new CodeWriterPython();
+        }
         if (this.baseModel instanceof type.UMLStateMachine) {
             var compositeStates = me.extractStates(me.baseModel , false, true, true),
                 stateMachines = [me.baseModel];
@@ -505,11 +512,12 @@ class StructuredTextGenerator  extends FSMHelpers {
             if (me.options.generateST) {
                 var comment = this.baseModel.documentation ? this.baseModel.documentation : '';
                 this.cw.writeLine();
+                this.cw.writeBodyBegin();
 
                 // add ResetStateMachine handler
                 this.cw.writeStatement('rtResetStateMachine(CLK:=ResetStateMachine)');
                 this.cw.writeIfBegin('rtResetStateMachine.Q');
-                this.cw.writeAssignment('eState', me.getStateName(me.getInitialState()));
+                this.cw.writeAssignment('eState', me.getStateName(me.getInitialState(), true,  me.options.enumValuePrefix));
                 this.cw.writeAssignment('ePrevState', me.getInactiveState());
                 compositeStates.forEach(state => {
                     state.regions.forEach((region, idx_region) => {
@@ -528,6 +536,7 @@ class StructuredTextGenerator  extends FSMHelpers {
                 });
 
                 stateMachines.forEach(me.handleStateMachine, me);
+                this.cw.writeBodyEnd();
             }
             if (options.generateVars || options.generateST) {
                     this.cw.writeStateMachineEnd();

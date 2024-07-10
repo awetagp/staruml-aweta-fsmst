@@ -36,6 +36,13 @@ class CodeWriterST extends codegen.CodeWriter{
         this.outdent();
         this.writeLine('END_FUNCTION_BLOCK');
     }
+
+    writeBodyBegin() {
+    }
+
+    writeBodyEnd() {
+    }
+
     // CASE
     writeCaseBegin(variable) {
         this.writeLine(`CASE ${variable} OF`);

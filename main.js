@@ -118,6 +118,9 @@ function handleFsmCodeGenerator(statemachines, output, target) {
                         else if (target == 'scl') {
                             output_masker = output_masker.replace(/\.\w+$/, '.scl');
                         }
+                        else if (target == 'py') {
+                            output_masker = output_masker.replace(/\.\w+$/, '.py');
+                        }
 
                         const outputRendered = ejs.render(output_masker, data, { async: false });
                         console.log(outputRendered);
