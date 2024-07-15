@@ -198,7 +198,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             sms_up.forEach(_smb_ => {
                 _smb_.regions.forEach(_regionPar => {
                     // prevent on self transition that state becomes inactive (overwrite set above)
-                    if (transition.source._id != transition.target._id || FSMHelpers.getParent(state)._id != transition.source._id) {
+                    if (transition.source._id != transition.target._id || _smb_._id != transition.source._id) {
                         this.cw.writeAssignment(me.getStateVar(_regionPar, false), me.getInactiveState());
                     }
                 }); // end _smb_.regions.
