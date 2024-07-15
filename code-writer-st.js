@@ -135,7 +135,7 @@ class CodeWriterST extends codegen.CodeWriter{
         VARLUT[Location.Var] = "VAR";
         VARLUT[Location.VarIn] = "VAR_INPUT";
         VARLUT[Location.VarOut] = "VAR_OUTPUT";
-        VARLUT[Location.VarInOut] = "VAR_INOUT";
+        VARLUT[Location.VarInOut] = "VAR_IN_OUT";
         VARLUT[Location.VarConst] = "VAR CONSTANT";
 
         if (variables.length >= 1) {
