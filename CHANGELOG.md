@@ -1,4 +1,14 @@
-0.1.0  - 2024-07-08
+0.2.0 - 2024-7-15
+====
+
+Features:
+* Rewrite of codewriter; cleaner output and easier to add different/variant languages.
+* Proto of Python output (not finished yet)
+
+Fixes:
+* External self tranistion composite state goes to InActive when multiple levels deep are used.
+
+0.1.0 - 2024-07-08
 =====
 
 Features:

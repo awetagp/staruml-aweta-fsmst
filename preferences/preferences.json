@@ -24,6 +24,10 @@
                 {
                     "value": "scl",
                     "text": "Siemens SCL"
+                },
+                {
+                    "value": "py",
+                    "text": "Python"
                 }
             ]
         },

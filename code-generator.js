@@ -1,8 +1,10 @@
 const path = require('path');
 const fs = require('fs');
-const codegen = require('./code-utils')
-const {FSMHelpers} = require('./code-helpers')
-const { Variable, Dataset } = require('./dataset')
+// const { v4: uuidv4 } = require('uuid')
+const { FSMHelpers } = require('./code-helpers');
+const { CodeWriterST } = require('./code-writer-st');
+const { CodeWriterPython } = require('./code-writer-python');
+const { Variable, Dataset, Location } = require('./dataset');
 
 class StructuredTextGeneratorOptions {
     target = 'st';
@@ -47,7 +49,7 @@ class StructuredTextGenerator  extends FSMHelpers {
      * @param {string} line
      */
     writeLineWithSubstitution(line) {
-        this.cw.writeLine(`${this.getSubstitute(line.name)};`);
+        this.cw.writeStatement(this.getSubstitute(line.name));
     }
 
     toComment(comment) {
@@ -56,10 +58,6 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         }
         return `(* ${comment} *)`;
-    }
-
-    writeComment(comment) {
-        this.cw.writeLine(this.toComment(comment));
     }
 
     /**
@@ -114,11 +112,10 @@ class StructuredTextGenerator  extends FSMHelpers {
             condition += `${me.getPrevStateVar(_region, false)} <> ${me.getInactiveState()}`;
         });
 
-        this.cw.writeLine(`IF ${condition} THEN`);
-        this.cw.indent();
+        this.cw.writeIfBegin(condition);
 
         // hmm is this really correct, what if neste multiple times?
-        this.cw.writeLine(`${me.getStateVar(state)} := ${me.getStateName(transition.target._parent._parent,true, me.options.enumValuePrefix)};`);
+        this.cw.writeAssignment(me.getStateVar(state), me.getStateName(transition.target._parent._parent,true, me.options.enumValuePrefix));
 
         // get all  (sub)statemachines that should be restored
         var _smsToRestore=me.getStatesBetween(state,transition.target);
@@ -126,13 +123,11 @@ class StructuredTextGenerator  extends FSMHelpers {
         _smsToRestore.forEach( _smRestore => {
             // for each composite statemachine restore each region of it
             _smRestore.regions.forEach(_regionPar => {
-                this.cw.writeLine(`${me.getStateVar(_regionPar, false)} := ${me.getPrevStateVar(_regionPar, false)};`);
-                this.cw.writeLine(`${me.getPrevStateVar(_regionPar, false)} := ${me.getInactiveState()};`);
+                this.cw.writeAssignment(me.getStateVar(_regionPar, false), me.getPrevStateVar(_regionPar, false));
+                this.cw.writeAssignment(me.getPrevStateVar(_regionPar, false), me.getInactiveState());
     }       );
         });
-
-        this.cw.outdent();
-        this.cw.writeLine('END_IF;');
+        this.cw.writeIfEnd();
     }
 
     /**
@@ -151,16 +146,12 @@ class StructuredTextGenerator  extends FSMHelpers {
             condition += `${me.getStateVar(_region, false)} = ${me.getInactiveState()}`;
         });
 
-        this.cw.writeLine(`IF ${condition} THEN`);
-        this.cw.indent();
-        this.cw.writeLine(`${me.getStateVar(FSMHelpers.getRegion(transition.target), false)} := ${me.getStateName(transition.target,true, me.options.enumValuePrefix)};`);
-        this.cw.writeLine(`${me.getStateVar(FSMHelpers.getRegion(state), false)} := ${me.getInactiveState()};`);
-        this.cw.outdent();
-        this.cw.writeLine('ELSE');
-        this.cw.indent();
-        this.cw.writeLine(`${me.getStateVar(FSMHelpers.getRegion(state), false)} := ${me.getInactiveState()};`);
-        this.cw.outdent();
-        this.cw.writeLine('END_IF;');
+        this.cw.writeIfBegin(condition);
+        this.cw.writeAssignment(me.getStateVar(FSMHelpers.getRegion(transition.target), false), me.getStateName(transition.target,true, me.options.enumValuePrefix));
+        this.cw.writeAssignment(me.getStateVar(FSMHelpers.getRegion(state), false), me.getInactiveState());
+        this.cw.writeElse();
+        this.cw.writeAssignment(me.getStateVar(FSMHelpers.getRegion(state), false), me.getInactiveState());
+        this.cw.writeIfEnd();
     }
 
     /**
@@ -173,42 +164,42 @@ class StructuredTextGenerator  extends FSMHelpers {
     handleTransitionRegular(state, transition) {
         var me = this;
         if (FSMHelpers.isCompositeState(state) ){
-            this.cw.writeLine(`${me.getStateVar(state, false)} := ${me.getInactiveState()};`);
-            this.cw.writeLine(`${me.getPrevStateVar(state, false)} := ${me.getInactiveState()};`);
+            this.cw.writeAssignment(me.getStateVar(state, false), me.getInactiveState());
+            this.cw.writeAssignment(me.getPrevStateVar(state, false), me.getInactiveState());
         }
 
         //TODO: could be merged with the other FSMHelpers.isInnerStateOf, is now only split to keep the original diff working
         if (FSMHelpers.isInnerStateOf(state, transition.target)) {
             var states_up = FSMHelpers.getCompositeStatesBetween(state, transition.target);
             states_up.forEach(_state_ => {
-                this.cw.writeLine(`${me.getStateVar(_state_)} := ${me.getStateName(_state_, true, me.options.enumValuePrefix)};`);
+                this.cw.writeAssignment(me.getStateVar(_state_), me.getStateName(_state_, true, me.options.enumValuePrefix));
             });
         }
 
         // this is the main new state transfer
-        this.cw.writeLine(`${me.getStateVar(transition.target)} := ${me.getStateName(transition.target, true, me.options.enumValuePrefix)};`);
+        this.cw.writeAssignment(me.getStateVar(transition.target), me.getStateName(transition.target, true, me.options.enumValuePrefix));
 
         if (FSMHelpers.isCompositeState(transition.target)) {
             if (this.getInitialState(transition.target) !== null) {
-                this.cw.writeLine(`${me.getStateVar(transition.target, false)} := ${me.getStateName(this.getInitialState(transition.target), true, me.options.enumValuePrefix)};`);
+                this.cw.writeAssignment(me.getStateVar(transition.target, false), me.getStateName(this.getInitialState(transition.target), true, me.options.enumValuePrefix));
             }
             if (FSMHelpers.haveSameParent(state, transition.target) === false) {
-                this.cw.writeLine(`${me.getPrevStateVar(transition.target, false)} := ${me.getInactiveState()};`);
+                this.cw.writeAssignment(me.getPrevStateVar(transition.target, false), me.getInactiveState());
             }
         }
 
         if (FSMHelpers.isInnerStateOf(state, transition.target)) {
             var regions_up = FSMHelpers.getCompositeRegionsBetween(state, transition.target);
             regions_up.forEach(_rgn_ => {
-                this.cw.writeLine(`${me.getPrevStateVar(_rgn_, false)} := ${me.getInactiveState()};`);
+                this.cw.writeAssignment(me.getPrevStateVar(_rgn_, false), me.getInactiveState());
             })
         } else if (FSMHelpers.isJoin(transition.target) == false && FSMHelpers.isOuterStateOf(state, transition.target)) {
             var sms_up = FSMHelpers.getCompositeStatesBetween(transition.target, state).reverse();
             sms_up.forEach(_smb_ => {
                 _smb_.regions.forEach(_regionPar => {
                     // prevent on self transition that state becomes inactive (overwrite set above)
-                    if (transition.source._id != transition.target._id || FSMHelpers.getParent(state)._id != transition.source._id) {
-                        this.cw.writeLine(`${me.getStateVar(_regionPar, false)} := ${me.getInactiveState()};`);
+                    if (transition.source._id != transition.target._id || _smb_._id != transition.source._id) {
+                        this.cw.writeAssignment(me.getStateVar(_regionPar, false), me.getInactiveState());
                     }
                 }); // end _smb_.regions.
             });  // end  sms_up.forEach
@@ -227,25 +218,25 @@ class StructuredTextGenerator  extends FSMHelpers {
             effects = FSMHelpers.extractActivities(state, transition);
 
         if (isInternalSelfTransition == false && state.exitActivities && state.exitActivities.length > 0) {
-            this.writeComment('exitActivities:');
+            this.cw.writeComment('exitActivities:');
             state.exitActivities.forEach(me.writeLineWithSubstitution, this);
         }
 
         if (effects.length > 0) {
-            this.writeComment('effects stuff');
+            this.cw.writeComment('effects stuff');
             effects.forEach(me.writeLineWithSubstitution, this);
         }
 
         // An 'external' self transtion with retrigger entries
         if (state._id == transition.target._id && isInternalSelfTransition == false) {
-            this.cw.writeLine(`${me.getPrevStateVar(state)} := ${me.getInactiveState()}; ${this.toComment('retrigger entry activities')}`);
+            this.cw.writeAssignment(me.getPrevStateVar(state), me.getInactiveState(), 'retrigger entry activities');
         }
 
         if (FSMHelpers.isRestoreHistory(transition.target)) {
-            this.writeComment('restore history');
+            this.cw.writeComment('restore history');
             me.handleTransitionHistoryRestore(state, transition);
         } else if (FSMHelpers.isJoin(transition.target)) {
-            this.writeComment('Join substatemachines');
+            this.cw.writeComment('Join substatemachines');
             me.handleTransitionJoin(state, transition);
         } else if (FSMHelpers.isCompositeState(state) == false || FSMHelpers.isInternalSelfTransition(transition) == false || state._id != transition.source._id) {
             // regular transition
@@ -269,23 +260,20 @@ class StructuredTextGenerator  extends FSMHelpers {
             usedTriggers = FSMHelpers.getUsedTriggers(transitions);
 
         if (FSMHelpers.isSubState(state)) {
-            this.writeComment(`Substate ${me.getStateName(FSMHelpers.getParent(state))}.${stateName}`);
+            this.cw.writeComment(`Substate ${me.getStateName(FSMHelpers.getParent(state))}.${stateName}`);
         }
-        this.cw.writeLine(`${stateName}:`);
-        this.cw.indent();
+        this.cw.writeCaseSelect(stateName);
 
         // activities
         if (state.entryActivities && state.entryActivities.length > 0) {
-            this.cw.writeLine(`IF ${me.getStateVar(state)} <> ${me.getPrevStateVar(state)} THEN`);
-            this.cw.indent();
-            this.writeComment('entryActivities:');
+            this.cw.writeIfBegin(`${me.getStateVar(state)} <> ${me.getPrevStateVar(state)}`);
+            this.cw.writeComment('entryActivities:');
             state.entryActivities.forEach(me.writeLineWithSubstitution, this);
-            this.cw.outdent();
-            this.cw.writeLine('END_IF;');
+            this.cw.writeIfEnd();
         }
 
         // set prev state var
-        this.cw.writeLine(`${me.getPrevStateVar(state)} := ${me.getStateVar(state)};`);
+        this.cw.writeAssignment(me.getPrevStateVar(state), me.getStateVar(state));
         this.cw.writeLine();
 
         // iterate triggers
@@ -294,17 +282,18 @@ class StructuredTextGenerator  extends FSMHelpers {
             let transitionsPerTrigger = FSMHelpers.getTransitionsForTrigger(triggerName, transitions),
                 condStat = null;
             if (triggerName && tidx == 0) {
-                condStat=`IF ${me.getSubstitute(triggerName)} THEN`;
+                condStat = true;
+                this.cw.writeIfBegin(me.getSubstitute(triggerName));
             } else if (triggerName) {
-                condStat=`ELSIF ${me.getSubstitute(triggerName)} THEN`;
+                condStat = true;
+                this.cw.writeElseIf(me.getSubstitute(triggerName));
             } else if (usedTriggers.length >= 2) {
-                condStat='ELSE';
+                condStat = true;
+                this.cw.writeElse();
             }
 
             if (condStat) {
                 nested |= true;
-                this.cw.writeLine(condStat);
-                this.cw.indent();
             }
 
             // iterate transitions per triggers
@@ -313,46 +302,46 @@ class StructuredTextGenerator  extends FSMHelpers {
                 let guard = transition.guard || null,
                     condTrans = null;
 
-                this.writeComment(`${transition._id}`);
+                // this.writeComment(`${transition._id}`);
                 if (guard && ttidx==0) {
-                    condTrans = `IF ${me.getSubstitute(guard)} THEN`
+                    condTrans = true;
+                    this.cw.writeIfBegin(me.getSubstitute(guard), transition._id);
                 } else if ( guard ) {
-                    condTrans = `ELSIF ${me.getSubstitute(guard)} THEN`
+                    condTrans = true;
+                    this.cw.writeElseIf(me.getSubstitute(guard), transition._id);
                 } else if (FSMHelpers.isFork(state)==false && transitionsPerTrigger.length>1) {
-                    condTrans = 'ELSE'
+                    this.cw.writeElse(transition._id);
+                    condTrans = true;
                 }
                 else if (FSMHelpers.isCompositeState(state) && transition.triggers.length === 0 && guard == null) {
-                    condTrans = `IF ${me.getStateVar(state, false)} = ${me.getStateName(me.getFinalState(state))} THEN`
+                    condTrans = true;
+                    this.cw.writeIfBegin(`${me.getStateVar(state, false)} = ${me.getStateName(me.getFinalState(state), true,  me.options.enumValuePrefix )}`);
+                }
+                else {
+                    this.cw.writeComment(transition._id);
                 }
 
                 if (condTrans) {
                     nestedTransCond |= true;
-                    this.cw.writeLine(condTrans);
-                    this.cw.indent();
                 }
 
                 // handle transition
                 me.handleTransition(state, transition);
 
                 if (condTrans) {
-                    this.cw.outdent();
                 }
 
             });
             if (nestedTransCond) {
-                this.cw.writeLine('END_IF;');
-            }
-
-            if (condStat) {
-                this.cw.outdent();
+                this.cw.writeIfEnd();
             }
         });
 
         if (nested) {
-            this.cw.writeLine('END_IF;');
+            this.cw.writeIfEnd();
         }
 
-        this.cw.outdent();
+        this.cw.writeCaseSelectEnd();
         this.cw.writeLine();
     }
 
@@ -364,11 +353,9 @@ class StructuredTextGenerator  extends FSMHelpers {
     handleRegion(region) {
         var me = this;
         var states = me.extractStates(region, true, true, false);
-        this.cw.writeLine(`CASE ${me.getStateVar(region, false)} OF`);
-        this.cw.indent();
+        this.cw.writeCaseBegin(me.getStateVar(region, false));
         states.forEach(me.handleState, me);
-        this.cw.outdent();
-        this.cw.writeLine('END_CASE;');
+        this.cw.writeCaseEnd();
     }
 
     /**
@@ -388,19 +375,17 @@ class StructuredTextGenerator  extends FSMHelpers {
                 if (_idx != 0) {
                     condition += ' AND ';
                 }
-                condition += `${me.getStateVar(_sm, true)} = ${me.getStateName(_sm)} AND ${me.getStateVar(_sm, true)} = ${me.getPrevStateVar(_sm)}`;
+                condition += `${me.getStateVar(_sm, true)} = ${me.getStateName(_sm, true, me.options.enumValuePrefix)} AND ${me.getStateVar(_sm, true)} = ${me.getPrevStateVar(_sm)}`;
             });
 
             this.cw.writeLine();
-            this.cw.writeLine(`IF ${condition} THEN`);
-            this.cw.indent();
+            this.cw.writeIfBegin(condition);
         }
 
         sm.regions.forEach(me.handleRegion, me);
 
         if (!(sm instanceof type.UMLStateMachine)) {
-            this.cw.outdent();
-            this.cw.writeLine('END_IF;');
+            this.cw.writeIfEnd();
         }
     }
 
@@ -412,33 +397,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             states = me.extractStates(this.baseModel, true, true, true),
             names = me.getStateNames(states);
 
-        this.cw.writeLine('TYPE');
-        this.cw.indent();
-        this.cw.writeLine(`${me.getEnumType()} : (`);
-        this.cw.indent();
-        names.forEach((stateName, idx, thearay) => {
-            let postfix = ',';
-            if (idx === 0) {
-                postfix = ' := 0,';
-            }
-            else if (idx === thearay.length - 1) {
-                postfix = '';
-            }
-            this.cw.writeLine(`${stateName}${postfix}`);
-        });
-        this.cw.outdent();
-        this.cw.writeLine(');');
-        this.cw.outdent();
-        this.cw.writeLine('END_TYPE');
-    }
-
-    /**
-     * Generate from a Variable class a ST var line like NAME: TYPE; (* comment *)
-     * @param {Variable} variable
-     */
-    addDatasetVar(variable) {
-        let comment = variable.comment!= '' ? ` ${this.toComment(variable.comment)}`: '';
-        this.cw.writeLine(`${variable.name} : ${variable.datatype};${comment}`);
+        this.cw.writeEnumType(me.getEnumType(), names);
     }
 
     /**
@@ -456,76 +415,51 @@ class StructuredTextGenerator  extends FSMHelpers {
             }
             return 'INT';
         }
-        this.cw.writeLine('VAR_INPUT');
-        this.cw.indent();
-        this.cw.writeLine(`ResetStateMachine: BOOL := FALSE; ${this.toComment('Used for testing purposes')}`);
-        me.getDatasetItem('var_in').forEach(me.addDatasetVar, me);
-        this.cw.outdent();
-        this.cw.writeLine('END_VAR');
-        this.cw.writeLine();
 
-        this.cw.writeLine('VAR_OUTPUT');
-        this.cw.indent();
-        this.cw.writeLine(`eState : ${getStatesType()} := ${me.getStateName(me.getInitialState(), true, me.options.enumValuePrefix)};`);
+        let var_input=[];
+        var_input.push(new Variable('ResetStateMachine', 'BOOL', Symbol.VAR_INPUT, 'Used for testing purposes', 'FALSE'));
+        var_input.push(...me.getDatasetItem('var_in'));
+        this.cw.writeVariables(Location.VarIn, var_input);
+
+
+        let var_output = [];
+        var_output.push(new Variable('eState', getStatesType(), Symbol.VAR_OUTPUT, '', me.getStateName(me.getInitialState(), true, me.options.enumValuePrefix)));
         compositeStates.forEach(state => {
             state.regions.forEach((region,idx_region) => {
-                this.cw.writeLine(`e${me.getRegionName(region, true)}State : ${getStatesType()} := ${me.getInactiveState()};`);
+                var_output.push(new Variable(`e${me.getRegionName(region, true)}State`, getStatesType(), Symbol.VAR_OUTPUT, '', me.getInactiveState()));
             });
         });
-        me.getDatasetItem('var_out').forEach(me.addDatasetVar, me);
-        this.cw.outdent();
-        this.cw.writeLine('END_VAR');
-        this.cw.writeLine();
+        var_output.push(...me.getDatasetItem('var_out'));
+        this.cw.writeVariables(Location.VarOut, var_output);
 
-        if (me.getDatasetItem('var_inout').length > 0) {
-            this.cw.writeLine('VAR_IN_OUT');
-            this.cw.indent();
-            me.getDatasetItem('var_inout').forEach(me.addDatasetVar, me);
-            this.cw.outdent();
-            this.cw.writeLine('END_VAR');
-            this.cw.writeLine();
-        }
 
-        this.cw.writeLine('VAR');
-        this.cw.indent();
-        this.cw.writeLine('rtResetStateMachine: R_TRIG;');
-        this.cw.writeLine(`ePrevState : ${getStatesType()} := ${me.getInactiveState()};`);
+        this.cw.writeVariables(Location.VarInOut, me.getDatasetItem('var_inout'));
+
+        let vars = [];
+        vars.push(new Variable('rtResetStateMachine', 'R_TRIG', Symbol.VAR, '', null ));
+        vars.push(new Variable('ePrevState', getStatesType(), Symbol.VAR, '', me.getInactiveState() ));
         compositeStates.forEach(state => {
             state.regions.forEach((region,idx_region) => {
-                this.cw.writeLine(`e${me.getRegionName(region, true)}PrevState : ${getStatesType()} := ${me.getInactiveState()};`);
+                vars.push(new Variable(`e${me.getRegionName(region, true)}PrevState`, getStatesType(), Symbol.Var, '', me.getInactiveState()));
             });
         });
-        me.getDatasetItem('var_private').forEach(me.addDatasetVar, me);
+        vars.push(...me.getDatasetItem('var_private'));
+        this.cw.writeVariables(Location.Var, vars);
 
-        this.cw.outdent();
-        this.cw.writeLine('END_VAR');
-        this.cw.writeLine();
 
         // adds an array with al the state names
-        this.cw.writeLine('VAR CONSTANT');
-        this.cw.indent();
+        let var_const = [],
+            value = [];
         if (me.options.target != 'scl') {
-            this.cw.writeLine(`StateNames : ARRAY[0..${stateNames.length - 1}] OF STRING := [`);
-            this.cw.indent();
-            stateNames.forEach((stateName, idx, thearay) => {
-                let postfix = ',';
-                if (idx === thearay.length - 1) {
-                    postfix = '';
-                }
-                this.cw.writeLine(`'${stateName}'${postfix}`);
-            });
-
-            this.cw.outdent();
-            this.cw.writeLine('];');
+            var_const.push(new Variable('StateNames', `ARRAY[0..${stateNames.length - 1}] OF STRING`, Symbol.VarConst, '', stateNames ));
         }
         if (me.options.haveEnum == false) {
             var names = me.getStateNames(states);
             names.forEach((stateName, idx, thearay) => {
-                this.cw.writeLine(`${stateName}: INT := ${idx};`);
+                var_const.push(new Variable(`${stateName}`, 'INT', Symbol.VarConst, '', `${idx}` ));
             });
         }
-        this.cw.outdent();
-        this.cw.writeLine('END_VAR');
+        this.cw.writeVariables(Location.VarConst, var_const);
     }
 
     /**
@@ -543,11 +477,18 @@ class StructuredTextGenerator  extends FSMHelpers {
             me.options.generateType = false;
         } else if (me.options.target == 'plcopen') {
             me.options.enumValuePrefix = true;
+        } else if (me.options.target == 'py') {
+            me.options.enumValuePrefix = true;
         }
+
 
         FSMHelpers.scopeEnumValueWithType = me.options.enumValuePrefix;
 
-        this.cw = new codegen.CodeWriter();
+        if (me.options.target != 'py') {
+            this.cw = new CodeWriterST();
+        } else {
+            this.cw = new CodeWriterPython();
+        }
         if (this.baseModel instanceof type.UMLStateMachine) {
             var compositeStates = me.extractStates(me.baseModel , false, true, true),
                 stateMachines = [me.baseModel];
@@ -561,9 +502,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             }
 
             if (me.options.generateVars || me.options.generateST) {
-                var comment = this.baseModel.documentation ? ` ${this.toComment(this.baseModel.documentation)}` : '';
-                this.cw.writeLine(`FUNCTION_BLOCK FB_${me.getStateMachineName()}${comment}`);
-                this.cw.indent();
+                this.cw.writeStateMachineBegin(me.getStateMachineName(), this.baseModel.documentation);
             }
 
             if (me.options.generateVars) {
@@ -571,37 +510,36 @@ class StructuredTextGenerator  extends FSMHelpers {
             }
 
             if (me.options.generateST) {
-                var comment = this.baseModel.documentation ? ` ${this.toComment(this.baseModel.documentation)}` : '';
+                var comment = this.baseModel.documentation ? this.baseModel.documentation : '';
                 this.cw.writeLine();
+                this.cw.writeBodyBegin();
 
                 // add ResetStateMachine handler
-                this.cw.writeLine('rtResetStateMachine(CLK:=ResetStateMachine);');
-                this.cw.writeLine('IF rtResetStateMachine.Q THEN');
-                this.cw.indent();
-                this.cw.writeLine(`eState := ${me.getStateName(me.getInitialState())};`);
-                this.cw.writeLine(`ePrevState := ${me.getInactiveState()};`);
+                this.cw.writeStatement('rtResetStateMachine(CLK:=ResetStateMachine)');
+                this.cw.writeIfBegin('rtResetStateMachine.Q');
+                this.cw.writeAssignment('eState', me.getStateName(me.getInitialState(), true,  me.options.enumValuePrefix));
+                this.cw.writeAssignment('ePrevState', me.getInactiveState());
                 compositeStates.forEach(state => {
                     state.regions.forEach((region, idx_region) => {
                         // reset also substates
-                        this.cw.writeLine(`e${me.getRegionName(region, true)}State := ${me.getInactiveState()};`);
-                        this.cw.writeLine(`e${me.getRegionName(region, true)}PrevState := ${me.getInactiveState()};`);
+                        this.cw.writeAssignment(`e${me.getRegionName(region, true)}State`, me.getInactiveState());
+                        this.cw.writeAssignment(`e${me.getRegionName(region, true)}PrevState`,me.getInactiveState());
                     });
                 });
-                this.cw.writeLine('RETURN;');
-                this.cw.outdent();
-                this.cw.writeLine('END_IF;');
+                this.cw.writeReturn();
+                this.cw.writeIfEnd();
                 this.cw.writeLine();
 
                 // insert additional code provided by the variable extractor
                 me.getDatasetItem('body_pre').forEach(line => {
-                    this.cw.writeLine(`${line};`);
+                    this.cw.writeStatement(line);
                 });
 
                 stateMachines.forEach(me.handleStateMachine, me);
+                this.cw.writeBodyEnd();
             }
             if (options.generateVars || options.generateST) {
-                    this.cw.outdent();
-                    this.cw.writeLine('END_FUNCTION_BLOCK');
+                    this.cw.writeStateMachineEnd();
                     //fs.writeFileSync(path.join(me.basePath, 'out', 'test.st'), me.cw.getData(), { encoding: "utf-8" });
             }
             console.log(me.cw.getData());

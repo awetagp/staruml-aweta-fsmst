@@ -102,7 +102,7 @@ function handleFsmCodeGenerator(statemachines, output, target) {
 
                     // if split generate for each file part an own render
                     for (let file_nr = 0; file_nr < file_count; file_nr++) {
-                        const dataset = extract(element);
+                        const dataset = extract(element, target);
                         var options = new codegenerator.StructuredTextGeneratorOptions();
                         const data = {
                             element: element,
@@ -117,6 +117,9 @@ function handleFsmCodeGenerator(statemachines, output, target) {
                         }
                         else if (target == 'scl') {
                             output_masker = output_masker.replace(/\.\w+$/, '.scl');
+                        }
+                        else if (target == 'py') {
+                            output_masker = output_masker.replace(/\.\w+$/, '.py');
                         }
 
                         const outputRendered = ejs.render(output_masker, data, { async: false });
