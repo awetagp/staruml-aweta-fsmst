@@ -178,6 +178,10 @@ class StructuredTextGenerator  extends FSMHelpers {
 
         // this is the main new state transfer
         this.cw.writeAssignment(me.getStateVar(transition.target), me.getStateName(transition.target, true, me.options.enumValuePrefix));
+        // on self transition, but in a substate also retrigger (deep) parent state
+        if (transition.source._id == transition.target._id && state._id != transition.source._id) {
+            this.cw.writeAssignment(me.getStateVar(transition.target, true,'PrevState'), me.getInactiveState());
+        }
 
         if (FSMHelpers.isCompositeState(transition.target)) {
             if (this.getInitialState(transition.target) !== null) {
@@ -201,6 +205,9 @@ class StructuredTextGenerator  extends FSMHelpers {
                     if (transition.source._id != transition.target._id || _smb_._id != transition.source._id) {
                         this.cw.writeAssignment(me.getStateVar(_regionPar, false), me.getInactiveState());
                     }
+                    // else if (transition.source._id == transition.target._id && _smb_._id == transition.source._id) {
+                    //     this.cw.writeAssignment(me.getStateVar(_regionPar, false,'PrevState'), me.getInactiveState());
+                    // }
                 }); // end _smb_.regions.
             });  // end  sms_up.forEach
         }
