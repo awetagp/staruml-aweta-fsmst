@@ -1,4 +1,11 @@
-0.2.0 - 2024-7-15
+0.2.1 - 2024-07-16
+===
+
+Fixes:
+* ST VAR_IN_OUT is missing a '_' between IN_OUT.
+* In nested composited state, a self transition doesn't trigger the entries of the composited state.
+
+0.2.0 - 2024-07-15
 ====
 
 Features:
