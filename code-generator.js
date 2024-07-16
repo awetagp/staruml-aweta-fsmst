@@ -426,7 +426,7 @@ class StructuredTextGenerator  extends FSMHelpers {
         let var_input=[];
         var_input.push(new Variable('ResetStateMachine', 'BOOL', Symbol.VAR_INPUT, 'Used for testing purposes', 'FALSE'));
         var_input.push(...me.getDatasetItem('var_in'));
-        this.cw.writeVariables(Location.VarIn, var_input);
+        this.cw.writeVariables(Location.VarIn, var_input.sort(FSMHelpers.variableSortFn));
 
 
         let var_output = [];
@@ -437,10 +437,10 @@ class StructuredTextGenerator  extends FSMHelpers {
             });
         });
         var_output.push(...me.getDatasetItem('var_out'));
-        this.cw.writeVariables(Location.VarOut, var_output);
+        this.cw.writeVariables(Location.VarOut, var_output.sort(FSMHelpers.variableSortFn));
 
 
-        this.cw.writeVariables(Location.VarInOut, me.getDatasetItem('var_inout'));
+        this.cw.writeVariables(Location.VarInOut, me.getDatasetItem('var_inout').sort(FSMHelpers.variableSortFn));
 
         let vars = [];
         vars.push(new Variable('rtResetStateMachine', 'R_TRIG', Symbol.VAR, '', null ));
@@ -451,7 +451,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             });
         });
         vars.push(...me.getDatasetItem('var_private'));
-        this.cw.writeVariables(Location.Var, vars);
+        this.cw.writeVariables(Location.Var, vars.sort(FSMHelpers.variableSortFn));
 
 
         // adds an array with al the state names
@@ -466,7 +466,7 @@ class StructuredTextGenerator  extends FSMHelpers {
                 var_const.push(new Variable(`${stateName}`, 'INT', Symbol.VarConst, '', `${idx}` ));
             });
         }
-        this.cw.writeVariables(Location.VarConst, var_const);
+        this.cw.writeVariables(Location.VarConst, var_const.sort(FSMHelpers.variableSortFn));
     }
 
     /**

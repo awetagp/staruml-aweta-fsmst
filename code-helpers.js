@@ -326,6 +326,16 @@ class FSMHelpers {
         return transitions.sort(compareTransitions);
     }
 
+    static variableSortFn(varA, varB) {
+        if (varA.name < varB.name) {
+            return -1;
+        }
+        else if (varA.name > varB.name) {
+            return 1;
+        }
+        return 0;
+    }
+
     static isInternalSelfTransition(transition) {
         return transition.source._id == transition.target._id
         && transition.kind != undefined
