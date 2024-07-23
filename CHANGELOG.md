@@ -1,3 +1,13 @@
+0.3.0 = 2024-07-23
+====
+
+Fixes:
+* For default ST use datype prefix with enum values
+
+Features:
+* Sort variables
+
+
 0.2.1 - 2024-07-16
 ===
 
