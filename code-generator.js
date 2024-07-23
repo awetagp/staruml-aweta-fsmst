@@ -478,7 +478,11 @@ class StructuredTextGenerator  extends FSMHelpers {
         me.options = options;
 
         console.log('target = ' + me.options.target);
-        if (me.options.target == 'scl') {
+        if (me.options.target == 'st') {
+            me.options.enumValuePrefix = true;
+        } else if (me.options.target == 'brst') {
+            me.options.enumValuePrefix = false;
+        } else if (me.options.target == 'scl') {
             me.options.cstyleComment = true;
             me.options.haveEnum = false;
             me.options.generateType = false;
@@ -487,7 +491,6 @@ class StructuredTextGenerator  extends FSMHelpers {
         } else if (me.options.target == 'py') {
             me.options.enumValuePrefix = true;
         }
-
 
         FSMHelpers.scopeEnumValueWithType = me.options.enumValuePrefix;
 
