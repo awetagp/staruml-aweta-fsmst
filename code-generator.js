@@ -316,7 +316,7 @@ class StructuredTextGenerator  extends FSMHelpers {
                 } else if ( guard ) {
                     condTrans = true;
                     this.cw.writeElseIf(me.getSubstitute(guard), transition._id);
-                } else if (FSMHelpers.isFork(state)==false && transitionsPerTrigger.length>1) {
+                } else if (FSMHelpers.isFork(state) == false && transitionsPerTrigger.length > 1) {
                     this.cw.writeElse(transition._id);
                     condTrans = true;
                 }

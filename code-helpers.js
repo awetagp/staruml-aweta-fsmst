@@ -273,11 +273,12 @@ class FSMHelpers {
         return _final_state;
     }
 
-    static sortTransitions(transitions) {
+    static sortTransitions(transitions, composed) {
         /* negative a becomes before b
            positive a becomes after b
            0 a is equal to b
            */
+        var composedCheck = composed || false;
         function compareTransitions(a,b) {
             var trigger_a = a.triggers.length >= 1 ? true : false,
                 trigger_b = b.triggers.length >= 1 ? true : false,
@@ -288,6 +289,10 @@ class FSMHelpers {
                 // intial_a = a.source instanceof type.UMLPseudostate && a.source.kind == 'initial',
                 // intial_b = b.source instanceof type.UMLPseudostate && b.source.kind == 'initial';
 
+            if (composedCheck) {
+                self_a = FSMHelpers.isInnerStateOf(a.source, a.target);
+                self_b = FSMHelpers.isInnerStateOf(b.source, b.target);
+            }
             // if(intial_a && !intial_b) {
             //     return -1;
             // }
@@ -296,11 +301,15 @@ class FSMHelpers {
             // }
             // }
             // else {
+                // if(self_a && !self_b && a.source._id=== b.source._id) {
+                //     return 1;
+                // }else if(!self_a && self_b && a.source._id=== b.source._id) {
+                //     return -1;
                 if(self_a && !self_b) {
                     return 1;
                 }else if(!self_a && self_b) {
                     return -1;
-                }else if(a.target._id != a.target._id) {
+                }else if(a.target._id != b.target._id) {
                     return -1;
                 } else {
                     if(trigger_a && !trigger_b) {
@@ -424,7 +433,7 @@ class FSMHelpers {
                 transitions_with_trigger.push(transition);
             }
         });
-        //transitions_with_trigger = FSMHelpers.sortTransitions(transitions_with_trigger);
+        transitions_with_trigger = FSMHelpers.sortTransitions(transitions_with_trigger, true);
         return transitions_with_trigger;
     }
 
