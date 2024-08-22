@@ -309,7 +309,7 @@ class FSMHelpers {
                     return 1;
                 }else if(!self_a && self_b) {
                     return -1;
-                }else if(a.target._id != b.target._id) {
+                }else if(a.target._id != a.target._id) {
                     return -1;
                 } else {
                     if(trigger_a && !trigger_b) {
