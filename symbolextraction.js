@@ -51,7 +51,7 @@ const Functions = {
     ISEVENT    : { 'st':'rt$event.Q',                               'py':'self.rt$event.isTriggered()'},
 
     TIMERTICK  : { 'st':'ton$event()',                              'py':'self.ton$event.tick()'},
-    ISTIMEREVENT: { 'st': 'ton$event.Q', 'py': 'self.ton$event.isTriggered()' },
+    ISTIMEREVENT: { 'st': 'rt$event.Q', 'py': 'self.rt$event.isTriggered()' },
     TIMEREVENTTICK  : { 'st':'rt$event(CLK:=ton$event.Q)',                    'py':'self.rt$event.tick(self.$event)'}
 };
 
