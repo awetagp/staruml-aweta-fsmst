@@ -7,35 +7,35 @@ class Trig:
     def __init__(self):
         self._previous:bool = False
         self.Q:bool = False
-    
+
     def tick(self, IN:bool)->bool:
         self.Q = IN is True and self._previous is False
         self._previous = IN
-        return self.Q  
-        
+        return self.Q
+
     def isTriggered(self)->bool:
         return self.Q
-            
+
 class Timeron(Trig):
     def __init__(self):
         Trig.__init__(self)
         self._timeout = None
         self._started:bool = False
-        
+
     def start(self, timeout):
         self._timeout = now()+timeout
         self._started = True
-        
+
     def stop(self):
         self._started = False
-        
+
     def tick(self):
         if Trig.tick(self, self._started and now() >= self._timeout) is True:
             self._started = False
 
 
 */
-const Functions = { 
+const Functions = {
     SET        : { 'st':'$0:=TRUE',                                 'py':'self.$0=True'},
     RESET      : { 'st':'$0:=FALSE',                                'py':'self.$0=False'},
     PUT        : { 'st':'$0:=$1',                                   'py':'self.$0=$1'},
@@ -51,10 +51,11 @@ const Functions = {
     ISEVENT    : { 'st':'rt$event.Q',                               'py':'self.rt$event.isTriggered()'},
 
     TIMERTICK  : { 'st':'ton$event()',                              'py':'self.ton$event.tick()'},
-    ISTIMEREVENT : { 'st':'ton$event.Q',                            'py':'self.ton$event.isTriggered()'}
+    ISTIMEREVENT: { 'st': 'ton$event.Q', 'py': 'self.ton$event.isTriggered()' },
+    TIMEREVENTTICK  : { 'st':'rt$event(CLK:=ton$event.Q)',                    'py':'self.rt$event.tick(self.$event)'}
 };
 
-const DataTypes = { 
+const DataTypes = {
     BOOL       : { 'st':'BOOL',   'py':'bool'},
     WORD       : { 'st':'DINT',   'py':'int'},
     TIMER      : { 'st':'TON',    'py':'Timeron'},
@@ -93,7 +94,7 @@ function findExpression( expr ) {
     var startpos = expr.indexOf("(");
     while (startpos>0 && validstart==false) {
         exprStart=startpos-1;
-        while (exprStart>0 && expr[exprStart].match(/[a-z]/i)) { 
+        while (exprStart>0 && expr[exprStart].match(/[a-z]/i)) {
             exprStart--
         };
         if (expr[exprStart].match(/[a-z]/i)==null) exprStart++;
@@ -139,7 +140,7 @@ function splitFunctionArgs( expr, target) {
                 var remainder = arg;
                 while (remainder.length > 0) {
                     var subexprpos = findExpression(remainder);
-            
+
                     if (subexprpos[0]>=0) {
                         localnewexpr += remainder.substring(0,subexprpos[0]);
                         // console.log("reworking: "+remainder.substring(subexprpos[0],subexprpos[1]))
@@ -205,8 +206,10 @@ function splitFunctionArgs( expr, target) {
                 newExpr = functemplate;
                 break;
             case 'STARTTIMER':
-                dataset.addVar(new Dataset.Variable("ton"+eventname, DataTypes.TIMER[target], Dataset.Location.Var));
-                dataset.addBody(Functions.TIMERTICK[target].replaceAll('$event',eventname));
+                dataset.addVar(new Dataset.Variable("ton" + eventname, DataTypes.TIMER[target], Dataset.Location.Var));
+                dataset.addVar(new Dataset.Variable("rt"+eventname, DataTypes.TRIG[target], Dataset.Location.Var));
+                dataset.addBody(Functions.TIMERTICK[target].replaceAll('$event', eventname));
+                dataset.addBody(Functions.TIMEREVENTTICK[target].replaceAll('$event', eventname));
                 newExpr = functemplate;
                 break;
             case 'CANCELTIMER':
@@ -277,7 +280,7 @@ function extract(element, target) {
     if (target != 'st' && target != 'py') {
         target = 'st'
     }
-    
+
     var transitions =[];
     app.repository.select('@UMLTransition').forEach(transition => {
         if(transition._parent._parent._id === element._id) {
