@@ -3,7 +3,7 @@
     "title": "FSM ST",
     "description": "Finite StateMachine generator for Structured Text.",
     "homepage": "https://gitlab.aweta.local/mvdweert/starumltemplates",
-    "version": "0.3.0",
+    "version": "0.3.2",
     "keywords": [
         "fsm",
         "st",

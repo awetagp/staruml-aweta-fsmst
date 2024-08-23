@@ -1,3 +1,16 @@
+0.3.2 = 2024-08-23
+====
+
+Fixes:
+* Multiple self transitions on composed without trigger.
+
+0.3.1 = 2024-08-22
+====
+
+Fixes:
+* Timers used TOn for event evaluation, should be a R_TRIG with TON as input.
+
+
 0.3.0 = 2024-07-23
 ====
 
