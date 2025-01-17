@@ -2,7 +2,7 @@
     "name": "aweta.fsmst",
     "title": "FSM ST",
     "description": "Finite StateMachine generator for Structured Text.",
-    "homepage": "https://gitlab.aweta.local/mvdweert/starumltemplates",
+    "homepage": "https://gitlab.aweta.local/awetagp/staruml-aweta-fsmst",
     "version": "0.3.2",
     "keywords": [
         "fsm",
@@ -10,11 +10,11 @@
         "slc"
     ],
     "author": {
-        "name": "AWETA",
+        "name": "AWETA G&P b.v.",
         "email": "inof@aweta.nl",
-        "url": "https://aweta.com"
+        "url": "https://www.aweta.com"
     },
-    "license": "MIT",
+    "license": "GPL",
     "engines": {
         "staruml": ">=3.0.0"
     }
