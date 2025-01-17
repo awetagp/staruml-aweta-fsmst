@@ -2,7 +2,7 @@
     "name": "aweta.fsmst",
     "title": "FSM ST",
     "description": "Finite StateMachine generator for Structured Text.",
-    "homepage": "https://gitlab.aweta.local/awetagp/staruml-aweta-fsmst",
+    "homepage": "https://github.com/awetagp/staruml-aweta-fsmst",
     "version": "0.3.2",
     "keywords": [
         "fsm",
