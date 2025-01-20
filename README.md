@@ -30,7 +30,8 @@ The generated statemachine is intended to be used as is, please don't make chang
 
 # 2. Installation
 The extension is tested with StarUML version 6.1.1.
-Follow the StarUML guideline for installing extensions.
+Follow the StarUML [guideline](https://docs.staruml.io/user-guide/managing-extensions#install-extension) for installing extensions.
+When installing from url you can use https://github.com/awetagp/staruml-aweta-fsmst.
 
 
 
