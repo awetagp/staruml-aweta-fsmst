@@ -1,5 +1,6 @@
 
 const Dataset = require('./dataset');
+const { FSMHelpers } = require('./code-helpers');
 /*
 For python expecting a Trig and Timeron class like this:
 
@@ -274,9 +275,8 @@ function parseGuard( expr, target ) {
     return dataset;
 }
 
-
-function extract(element, target) {
-
+function extract(element, target, usedStates) {
+    var me = this;
     if (target != 'st' && target != 'py') {
         target = 'st'
     }
@@ -297,11 +297,9 @@ function extract(element, target) {
         transition.effects.forEach(effect => {
             dataset.merge( parseActivity( effect.name, target) );
         });
-        _used_states.push(transition.source);
-        _used_states.push(transition.target);
     })
 
-    _used_states = Array.from(new Set(_used_states));
+    _used_states = usedStates;
     _used_states.forEach(state => {
         if (!(state instanceof type['UMLPseudostate'])) {
 
@@ -324,6 +322,34 @@ function extract(element, target) {
     return dataset;
 }
 
+/**
+ *
+ * Symbol extract, translate symbols to strucutred text constructions
+ */
+class SymbolExtractor  extends FSMHelpers {
+    /**
+     * @constructor
+     *
+     * @param {type.UMLStateMachine} baseModel
+     * @param {string} basePath generated files and directories to be placed
+     */
+    constructor(baseModel, basePath) {
+        super(baseModel)
+    }
+
+    /**
+     * extract symbols, translate symbols to strucutred text constructions
+     * @param {*} options
+     * @returns Dataset with extract symbols + manipulators
+     */
+    extract(options) {
+        var me = this,
+            usedStates = me.extractStates(this.baseModel, true, true, true);
+        return  extract(this.baseModel, options.target , usedStates);
+    }
+}
+
+exports.SymbolExtractor = SymbolExtractor
 exports.extract = extract
 exports.parseEvent = parseEvent
 exports.parseActivity = parseActivity

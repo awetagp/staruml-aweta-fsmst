@@ -5,6 +5,7 @@ const { FSMHelpers } = require('./code-helpers');
 const { CodeWriterST } = require('./code-writer-st');
 const { CodeWriterPython } = require('./code-writer-python');
 const { Variable, Dataset, Location } = require('./dataset');
+const { SymbolExtractor } = require('./symbolextraction');
 
 class StructuredTextGeneratorOptions {
     target = 'st';
@@ -555,6 +556,7 @@ class StructuredTextGenerator  extends FSMHelpers {
             console.log(me.cw.getData());
         }
     }
+
 }
 
 /**
@@ -565,8 +567,9 @@ class StructuredTextGenerator  extends FSMHelpers {
  * @param {StructuredTextGeneratorOptions} options
  * @returns
  */
-function generate(baseModel, basePath, dataset, options) {
-    var generator = new StructuredTextGenerator(baseModel, basePath, dataset);
+function generate(baseModel, basePath, options) {
+    var symbolExtractor = new SymbolExtractor(baseModel, basePath)
+    generator = new StructuredTextGenerator(baseModel, basePath, symbolExtractor.extract(options));
     generator.generate(options);
     return generator.cw.getData();
 }

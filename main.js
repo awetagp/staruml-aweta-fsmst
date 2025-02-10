@@ -4,7 +4,6 @@
 const path = require('path');
 const fs = require('fs');
 const { ipcRenderer } = require("electron");
-const extract = require('./symbolextraction').extract;
 const codegenerator = require('./code-generator');
 const modelvalidator = require('./model-validator');
 
@@ -102,7 +101,6 @@ function handleFsmCodeGenerator(statemachines, output, target) {
 
                     // if split generate for each file part an own render
                     for (let file_nr = 0; file_nr < file_count; file_nr++) {
-                        const dataset = extract(element, target);
                         var options = new codegenerator.StructuredTextGeneratorOptions();
                         const data = {
                             element: element,
@@ -127,7 +125,7 @@ function handleFsmCodeGenerator(statemachines, output, target) {
                         var rendered = '',
                             basedir = '';
 
-                        rendered = codegenerator.generate(element, basedir, dataset, options);
+                        rendered = codegenerator.generate(element, basedir, options);
 
                         if (error == false) {
                             console.log(`gen done`);
