@@ -3,7 +3,7 @@
     "title": "FSM ST",
     "description": "Finite StateMachine generator for Structured Text.",
     "homepage": "https://github.com/awetagp/staruml-aweta-fsmst",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "keywords": [
         "fsm",
         "st",
@@ -16,6 +16,6 @@
     },
     "license": "GPL",
     "engines": {
-        "staruml": ">=3.0.0"
+        "staruml": ">=5.0.0"
     }
 }

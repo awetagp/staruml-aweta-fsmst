@@ -1,3 +1,9 @@
+0.3.3 = 2025-02-10
+====
+
+Fixes:
+* Incorrect symbol extraction for entry/exit of a composed state without direct transitions.
+
 0.3.2 = 2024-08-23
 ====
 
