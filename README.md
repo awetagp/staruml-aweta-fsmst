@@ -23,10 +23,10 @@ StarUML extension AWETA FSMST  <!-- omit in toc -->
 
 # 1. Introduction
 
-FSMST is an [StarUML](https://staruml.io/) extension that generates IEC 61131-3Structered Text of a StarUML StateMachine diagram.
+FSMST is an [StarUML](https://staruml.io/) extension that generates IEC 61131-3 Structered Text of a StarUML StateMachine diagram.
 The generated output is Finite-state machine in the form of a `Function Block`.
 
-The generated statemachine is intended to be used as is, please don't make changes to the generated code! This makes it possible to update your statemachine and reasy reploy the updated Function Block.
+The generated statemachine is intended to be used as is, please don't make changes to the generated code! This makes it possible to update your statemachine and easy redeploy the updated Function Block.
 
 # 2. Installation
 The extension is tested with StarUML version 6.1.1.
